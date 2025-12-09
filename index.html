@@ -1395,65 +1395,7 @@ createApp(() <span class="c-keyword">=&gt;</span> {
         </div>
     </section>
 
-    <!-- API Reference Section -->
-    <section class="api-reference">
-        <div class="container">
-            <div class="section-header">
-                <h2>API Reference</h2>
-                <p>Complete guide to Zog.js APIs</p>
-            </div>
-            <div class="api-grid">
-                <div class="api-card">
-                    <h3>ref(value)</h3>
-                    <p>Creates a reactive reference with <code>.value</code> accessor.</p>
-                    <div class="code-snippet small">
-                        <code>const count = ref(0);
-count.value = 2;</code>
-                    </div>
-                </div>
-                <div class="api-card">
-                    <h3>reactive(obj)</h3>
-                    <p>Wraps an object in a reactive proxy for deep reactivity.</p>
-                    <div class="code-snippet small">
-                        <code>const state = reactive({ todos: [] });
-state.todos.push('item');</code>
-                    </div>
-                </div>
-                <div class="api-card">
-                    <h3>computed(getter)</h3>
-                    <p>Creates a lazily evaluated computed value.</p>
-                    <div class="code-snippet small">
-                        <code>const doubled = computed(() => count.value * 2);</code>
-                    </div>
-                </div>
-                <div class="api-card">
-                    <h3>watchEffect(fn)</h3>
-                    <p>Runs a function immediately and re-runs when dependencies change.</p>
-                    <div class="code-snippet small">
-                        <code>watchEffect(() => {
-  console.log(count.value);
-});</code>
-                    </div>
-                </div>
-                <div class="api-card">
-                    <h3>createApp(setup)</h3>
-                    <p>Creates an app instance with reactive scope.</p>
-                    <div class="code-snippet small">
-                        <code>createApp(() => ({ /* scope */ }))
-  .mount('#app');</code>
-                    </div>
-                </div>
-                <div class="api-card">
-                    <h3>route</h3>
-                    <p>Reactive router with path, hash, and query properties.</p>
-                    <div class="code-snippet small">
-                        <code>route.path // pathname
-route.query // params</code>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
+    
 
     <!-- Directives Table -->
     <section class="directives">
@@ -1517,6 +1459,19 @@ route.query // params</code>
             </div>
         </div>
     </section>    
+
+    <section id="limitations" class="limitations">
+            <div class="container" style="text-align: center;">
+                <div class="limitations-content">
+                    <h2>When Zog.js is NOT the Right Choice</h2>
+                    <p style="margin-top: 20px;">For creating complex applications and websites that require extensive features like routing 
+                        systems,
+                        <br>state management, and other advanced capabilities, it's better to use comprehensive frameworks
+                        like <a style="color: blue;" target="_blank" rel="noopener noreferrer nofollow" href="https://vuejs.org/">Vue.js</a>
+                        .</p>
+                </div>
+            </div>
+        </section>
 
     <!-- Footer -->
     <footer class="footer">
