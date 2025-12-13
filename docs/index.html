@@ -4,11 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Zog.js - Full Reactivity with Minimal Code Size</title>
-
-    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
-<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
-<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
-<link rel="manifest" href="/site.webmanifest">
     <style>
         :root {
             --bg-primary: #0f172a;
@@ -68,6 +63,7 @@
             background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
+            background-clip: text;
             margin-bottom: 2rem;
             letter-spacing: -1px;
         }
@@ -122,6 +118,7 @@
             background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
+            background-clip: text;
             font-weight: 800;
         }
 
@@ -190,7 +187,7 @@
         .token-keyword { color: #f472b6; }
         .token-string { color: #a5f3fc; }
         .token-number { color: #fde047; }
-        .token-comment { color: #94a3b8; }
+        .token-comment { color: #94a3b8; font-style: italic; }
         .token-function { color: #60a5fa; }
         .token-variable { color: #c084fc; }
         .token-operator { color: #f87171; }
@@ -214,29 +211,43 @@
 
         th {
             background: var(--bg-tertiary);
-            color: var(--accent-primary);
             font-weight: 600;
+            color: var(--accent-primary);
+        }
+
+        tr:last-child td {
+            border-bottom: none;
         }
 
         tr:hover {
-            background: var(--bg-tertiary);
+            background: rgba(56, 189, 248, 0.05);
         }
 
-        /* Blockquote */
-        blockquote {
-            border-left: 4px solid var(--accent-primary);
-            padding: 1rem 1.5rem;
-            margin: 1.5rem 0;
-            background: var(--bg-secondary);
-            border-radius: 0 8px 8px 0;
-            font-style: italic;
+        /* Badge */
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            background: var(--accent-primary);
+            color: var(--bg-primary);
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-left: 0.5rem;
+        }
+
+        .badge-new {
+            background: var(--success);
+        }
+
+        .badge-updated {
+            background: var(--warning);
         }
 
         /* Links */
         a {
             color: var(--accent-primary);
             text-decoration: none;
-            transition: color 0.3s;
+            transition: color 0.3s ease;
         }
 
         a:hover {
@@ -250,7 +261,6 @@
             border-top: 1px solid var(--border-color);
             padding: 3rem 2rem;
             margin-top: auto;
-            margin-left: 280px;
         }
 
         .footer-content {
@@ -259,17 +269,12 @@
         }
 
         .footer-section {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 2rem;
             margin-bottom: 2rem;
         }
 
         .footer-links h4 {
-            color: var(--accent-primary);
+            color: var(--text-primary);
             margin-bottom: 1rem;
-            font-size: 1rem;
-            font-weight: 600;
         }
 
         .footer-links ul {
@@ -278,31 +283,13 @@
         }
 
         .footer-links li {
-            margin-bottom: 0.75rem;
-        }
-
-        .footer-links a {
-            color: var(--text-secondary);
-            transition: color 0.3s;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .footer-links a:hover {
-            color: var(--accent-primary);
-            text-decoration: none;
+            margin-bottom: 0.5rem;
         }
 
         .footer-divider {
             border-top: 1px solid var(--border-color);
             padding-top: 2rem;
-            margin-top: 2rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 1rem;
+            text-align: center;
         }
 
         .footer-copyright {
@@ -310,276 +297,224 @@
             font-size: 0.9rem;
         }
 
-        .footer-links a::before {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-        }
-
-        .footer-links a.github::before {
-            content: '⚙️';
-        }
-
-        .footer-links a.website::before {
-            content: '🌐';
-        }
-
-        .footer-links a.vscode::before {
-            content: '📦';
-        }
-
         /* Responsive */
         @media (max-width: 768px) {
             .sidebar {
-                transform: translateX(-100%);
+                width: 100%;
+                height: auto;
+                position: relative;
             }
-            
+
             .main-content {
                 margin-left: 0;
+                padding: 2rem 1rem;
             }
 
-            footer {
-                margin-left: 0;
+            h1 {
+                font-size: 2rem;
             }
 
-            .footer-divider {
-                flex-direction: column;
-                align-items: flex-start;
+            h2 {
+                font-size: 1.5rem;
             }
         }
     </style>
 </head>
 <body>
     <div id="app">
-        <!-- Sidebar Navigation -->
+        <!-- Sidebar -->
         <aside class="sidebar">
             <div class="logo">Zog.js</div>
             <nav>
                 <ul class="nav-menu">
-                    <li><a href="#highlights" @click="scrollTo('highlights')">Highlights</a></li>
-                    <li><a href="#quick-start" @click="scrollTo('quick-start')">Quick Start</a></li>
-                    <li><a href="#core-concepts" @click="scrollTo('core-concepts')">Core Concepts</a></li>
-                    <li><a href="#api-reference" @click="scrollTo('api-reference')">API Reference</a></li>
-                    <li><a href="#examples" @click="scrollTo('examples')">Examples</a></li>
-                    <li><a href="#template-directives" @click="scrollTo('template-directives')">Template Directives</a></li>
-                    <li><a href="#router-usage" @click="scrollTo('router-usage')">Router Usage</a></li>
-                    <li><a href="#tips" @click="scrollTo('tips')">Tips & Gotchas</a></li>
-                    <li><a href="#development" @click="scrollTo('development')">Development</a></li>
-                    <li><a href="#license" @click="scrollTo('license')">License</a></li>
+                    <li><a href="#highlights" @click.prevent="scrollTo('highlights')">Highlights</a></li>
+                    <li><a href="#quick-start" @click.prevent="scrollTo('quick-start')">Quick Start</a></li>
+                    <li><a href="#core-concepts" @click.prevent="scrollTo('core-concepts')">Core Concepts</a></li>
+                    <li><a href="#api-reference" @click.prevent="scrollTo('api-reference')">API Reference</a></li>
+                    <li><a href="#examples" @click.prevent="scrollTo('examples')">Examples</a></li>
+                    <li><a href="#template-directives" @click.prevent="scrollTo('template-directives')">Template Directives</a></li>
+                    <li><a href="#plugins" @click.prevent="scrollTo('plugins')">Plugin System</a></li>
+                    <li><a href="#tips" @click.prevent="scrollTo('tips')">Tips & Gotchas</a></li>
+                    <li><a href="#development" @click.prevent="scrollTo('development')">Development</a></li>
+                    <li><a href="#license" @click.prevent="scrollTo('license')">License</a></li>
                 </ul>
             </nav>
         </aside>
 
         <!-- Main Content -->
         <main class="main-content">
-            <section id="introduction">
-                <h1>Zog.js</h1>
-                <p>Full reactivity with minimal code size.</p>
-                <p>Zog.js is a minimalist JavaScript library for building reactive user interfaces. It allows you to write clean, declarative templates directly in your HTML and power them with a simple, yet powerful, reactivity system. Inspired by the best parts of modern frameworks, Zog.js offers an intuitive developer experience with zero dependencies and no build step required.</p>
-            </section>
-
             <section id="highlights">
+                <h1>Zog.js Documentation</h1>
+                <p class="subtitle">Full reactivity with minimal code size</p>
+                
                 <h2>Highlights</h2>
                 <ul>
                     <li>Reactive primitives: <code>ref</code>, <code>reactive</code>, <code>computed</code></li>
-                    <li>Effects & watchers: <code>watchEffect</code></li>
+                    <li>Effects: <code>watchEffect</code></li>
                     <li>Lightweight template compiler for declarative DOM binding and interpolation (<code>{{ }}</code>)</li>
                     <li>Template directives: <code>z-if</code>, <code>z-for</code>, <code>z-text</code>, <code>z-html</code>, <code>z-show</code>, <code>z-model</code>, <code>z-on</code> (shorthand <code>@</code>)</li>
-                    <li>Minimal router snapshot: <code>route.path</code>, <code>route.hash</code>, <code>route.query</code></li>
+                    <li>Dynamic attribute binding with <code>:attribute</code> syntax</li>
                     <li>App lifecycle: <code>createApp(...).mount(selector)</code> and <code>.unmount()</code></li>
-                    <li>Utilities: <code>nextTick</code>, <code>unref</code>, <code>toRef</code></li>
+                    <li>Plugin system: <code>use(plugin, options)</code> for extending functionality <span class="badge badge-new">NEW</span></li>
                 </ul>
             </section>
 
             <section id="quick-start">
                 <h2>Quick Start</h2>
-                <h3>Using the file directly (ES module)</h3>
-                <p>Place <code>zog.js</code> next to your HTML or serve it via your bundler. Example HTML:</p>
-                <pre><code><span class="token-keyword">&lt;!DOCTYPE html&gt;</span>
-<span class="token-keyword">&lt;html</span> <span class="token-variable">lang</span>=<span class="token-string">"en"</span><span class="token-keyword">&gt;</span>
-<span class="token-keyword">&lt;head&gt;</span>
-    <span class="token-keyword">&lt;title&gt;</span>Zog.js Counter<span class="token-keyword">&lt;/title&gt;</span>
-<span class="token-keyword">&lt;/head&gt;</span>
-<span class="token-keyword">&lt;body&gt;</span>
+                <h3>Using the CDN</h3>
+                <p>The fastest way to get started is using the Zog.js CDN:</p>
+                <pre><code>&lt;script type="module"&gt;
+    import { createApp, ref } from 'https://cdn.zogjs.com/zog.es.js';
 
-    <span class="token-comment">&lt;!-- 1. Define your component's HTML structure --&gt;</span>
-    <span class="token-keyword">&lt;div</span> <span class="token-variable">id</span>=<span class="token-string">"app"</span><span class="token-keyword">&gt;</span>
-        <span class="token-keyword">&lt;h1&gt;</span>{{ title }}<span class="token-keyword">&lt;/h1&gt;</span>
-        <span class="token-keyword">&lt;p&gt;</span>Current count: {{ count }}<span class="token-keyword">&lt;/p&gt;</span>
-        <span class="token-keyword">&lt;button</span> <span class="token-variable">@click</span>=<span class="token-string">"increment"</span><span class="token-keyword">&gt;</span>Increment<span class="token-keyword">&lt;/button&gt;</span>
-        <span class="token-keyword">&lt;button</span> <span class="token-variable">@click</span>=<span class="token-string">"decrement"</span><span class="token-keyword">&gt;</span>Decrement<span class="token-keyword">&lt;/button&gt;</span>
-    <span class="token-keyword">&lt;/div&gt;</span>
+    createApp(() => {
+        const count = ref(0);
+        const increment = () => count.value++;
 
-    <span class="token-comment">&lt;!-- 2. Import Zog.js --&gt;</span>
-    <span class="token-keyword">&lt;script</span> <span class="token-variable">type</span>=<span class="token-string">"module"</span><span class="token-keyword">&gt;</span>
-        <span class="token-keyword">import</span> { createApp, ref } <span class="token-keyword">from</span> <span class="token-string">'https://cdn.zogjs.com/zog.es.js'</span>;
+        return { count, increment };
+    }).mount('#app');
+&lt;/script&gt;</code></pre>
 
-        createApp(()=>{
-                const title = ref('Counter App');
-                const count = ref(0);
+                <h3>Complete Example</h3>
+                <pre><code>&lt;!DOCTYPE html&gt;
+&lt;html lang="en"&gt;
+&lt;head&gt;
+    &lt;title&gt;Zog.js Counter&lt;/title&gt;
+&lt;/head&gt;
+&lt;body&gt;
+    &lt;div id="app"&gt;
+        &lt;h1&gt;{{ title }}&lt;/h1&gt;
+        &lt;p&gt;Current count: {{ count }}&lt;/p&gt;
+        &lt;button @click="increment"&gt;Increment&lt;/button&gt;
+    &lt;/div&gt;
 
-                const increment = () => {
-                    count.value++;
-                };
+    &lt;script type="module"&gt;
+        import { createApp, ref } from 'https://cdn.zogjs.com/zog.es.js';
 
-                const decrement = () => {
-                    count.value--;
-                };
+        createApp(() => {
+            const title = ref('Counter App');
+            const count = ref(0);
+            const increment = () => count.value++;
 
-                <span class="token-comment">// Expose state and methods to the template</span>
-                return {
-                    title,
-                    count,
-                    increment,
-                    decrement
-                };
+            return { title, count, increment };
         }).mount('#app');
-    <span class="token-keyword">&lt;/script&gt;</span>
-<span class="token-keyword">&lt;/body&gt;</span>
-<span class="token-keyword">&lt;/html&gt;</span></code></pre>
+    &lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;</code></pre>
             </section>
 
             <section id="core-concepts">
                 <h2>Core Concepts</h2>
-                
-                <h3>Reactivity primitives</h3>
+
+                <h3>Reactivity Primitives</h3>
                 <ul>
-                    <li><code>ref(initialValue)</code> — creates a reactive reference with <code>.value</code>.</li>
-                    <li><code>reactive(object)</code> — returns a reactive proxy of an object (deep reactive for nested objects).</li>
-                    <li><code>computed(getter)</code> — memoized reactive value that recomputes when dependencies change.</li>
-                    <li><code>watchEffect(fn, opts?)</code> — run a reactive effect immediately and re-run when dependencies change. Returns a function to stop the effect.</li>
+                    <li><code>ref(initialValue)</code> — creates a reactive reference with <code>.value</code></li>
+                    <li><code>reactive(object)</code> — returns a reactive proxy of an object (deep reactive for nested objects and arrays)</li>
+                    <li><code>computed(getter)</code> — memoized reactive value that recomputes when dependencies change</li>
+                    <li><code>watchEffect(fn, opts?)</code> — run a reactive effect immediately and re-run when dependencies change</li>
                 </ul>
 
-                <h3>Template interpolation</h3>
+                <h3>Template Interpolation</h3>
                 <p>Any text node containing <code>{{ expression }}</code> will be evaluated against the component scope:</p>
-                <pre><code><span class="token-keyword">&lt;p&gt;</span>Hello, {{ name }} — you have {{ items.length }} items.<span class="token-keyword">&lt;/p&gt;</span></code></pre>
-                <p>Expressions are evaluated in the scope you return from <code>createApp</code> (see examples).</p>
+                <pre><code>&lt;p&gt;Hello, {{ name }} — you have {{ items.length }} items.&lt;/p&gt;</code></pre>
 
-                <h3>Template directives</h3>
+                <h3>Template Directives</h3>
                 <p>The compiler supports a small set of directives for common tasks:</p>
                 <ul>
-                    <li><code>z-if="expression"</code> — render element only when truthy.</li>
-                    <li><code>z-else-if="expression"</code> and <code>z-else</code> — chainable conditional branches.</li>
-                    <li><code>z-for="item in list"</code> or <code>z-for="(item, index) in list"</code> — repeat an element for each item.</li>
-                    <li><code>z-text="expression"</code> — set <code>textContent</code>.</li>
-                    <li><code>z-html="expression"</code> — set <code>innerHTML</code>.</li>
-                    <li><code>z-show="expression"</code> — toggles <code>display</code> (<code>none</code> when falsy).</li>
-                    <li><code>z-model="prop"</code> — two-way binding for <code>input</code>, <code>select</code>, <code>textarea</code>; supports checkbox/radio semantics.</li>
-                    <li><code>z-on:event="handler"</code> or shorthand <code>@event="handler"</code> — attach event listener; handler may be a function in scope or an expression.</li>
+                    <li><code>z-if="expression"</code> — render element only when truthy</li>
+                    <li><code>z-else-if="expression"</code> and <code>z-else</code> — chainable conditional branches</li>
+                    <li><code>z-for="item in list"</code> — repeat an element for each item. Supports <code>:key</code> attribute for optimized diffing</li>
+                    <li><code>z-text="expression"</code> — set <code>textContent</code></li>
+                    <li><code>z-html="expression"</code> — set <code>innerHTML</code></li>
+                    <li><code>z-show="expression"</code> — toggles <code>display</code> (<code>none</code> when falsy)</li>
+                    <li><code>z-model="prop"</code> — two-way binding for inputs</li>
+                    <li><code>z-on:event="handler"</code> or <code>@event="handler"</code> — attach event listener</li>
+                    <li><code>:attribute="expression"</code> — bind any attribute dynamically (style objects, class objects, boolean attributes)</li>
                 </ul>
-
-                <h3>Router snapshot</h3>
-                <p>A lightweight reactive snapshot of the browser location:</p>
-                <ul>
-                    <li><code>route.path</code> — <code>location.pathname</code></li>
-                    <li><code>route.hash</code> — <code>location.hash</code></li>
-                    <li><code>route.query</code> — query object parsed from <code>location.search</code></li>
-                </ul>
-                <p>These properties are reactive — reading them inside <code>watchEffect</code> or <code>computed</code> will subscribe to updates from <code>hashchange</code>/<code>popstate</code>.</p>
             </section>
 
             <section id="api-reference">
                 <h2>API Reference</h2>
-                <blockquote>
-                    <p>Import signature (example)</p>
-                </blockquote>
-                <pre><code><span class="token-keyword">import</span> {
-  createApp,
-  ref,
-  reactive,
-  computed,
-  watchEffect,
-  route,
-  nextTick,
-  unref,
-  toRef
-} <span class="token-keyword">from</span> <span class="token-string">'./zog.js'</span>;</code></pre>
 
                 <h3><code>ref(value)</code></h3>
                 <p>Creates a reactive reference.</p>
-                <ul>
-                    <li>Usage: <code>const count = ref(0)</code></li>
-                    <li>Access: <code>count.value</code></li>
-                    <li>Assignment: <code>count.value = 2</code></li>
-                </ul>
+                <pre><code>const count = ref(0);
+count.value = 2; // Set value
+console.log(count.value); // Get value</code></pre>
 
                 <h3><code>reactive(obj)</code></h3>
-                <p>Wraps an object in a reactive proxy.</p>
-                <ul>
-                    <li>Usage: <code>const state = reactive({ todos: [] })</code></li>
-                    <li>Access / mutate like normal object: <code>state.todos.push('x')</code></li>
-                </ul>
+                <p>Wraps an object or array in a reactive proxy. Supports deep reactivity for nested structures.</p>
+                <pre><code>const state = reactive({ todos: [] });
+state.todos.push('New item'); // Reactive!</code></pre>
 
                 <h3><code>computed(getter)</code></h3>
                 <p>Creates a lazily evaluated computed value.</p>
-                <ul>
-                    <li>Usage: <code>const doubled = computed(() => count.value * 2)</code></li>
-                    <li>Access: <code>doubled.value</code></li>
-                </ul>
+                <pre><code>const doubled = computed(() => count.value * 2);
+console.log(doubled.value); // Access computed value</code></pre>
 
                 <h3><code>watchEffect(fn, opts?)</code></h3>
-                <p>Run <code>fn</code> immediately, re-run whenever a reactive dependency used inside <code>fn</code> changes.</p>
-                <ul>
-                    <li>Returns a stop function: <code>const stop = watchEffect(() => { ... }); stop();</code></li>
-                    <li><code>opts</code> can include a <code>scheduler</code> function.</li>
-                </ul>
+                <p>Run <code>fn</code> immediately, re-run whenever a reactive dependency changes.</p>
+                <pre><code>const stop = watchEffect(() => {
+    console.log('Count is:', count.value);
+});
+
+// Later: stop watching
+stop();</code></pre>
 
                 <h3><code>createApp(setup)</code></h3>
-                <p>Creates an app instance. <code>setup</code> is a function returning the reactive scope object to be used in templates.</p>
-                <ul>
-                    <li><code>const app = createApp(() => ({ /* scope */ }))</code></li>
-                    <li><code>app.mount(selector)</code> — mount on DOM node</li>
-                    <li><code>app.unmount()</code> — cleanup</li>
-                </ul>
+                <p>Creates an app instance. <code>setup</code> returns the reactive scope for templates.</p>
+                <pre><code>const app = createApp(() => {
+    return { /* scope */ };
+});
 
-                <h3><code>route</code></h3>
-                <p>Reactive snapshot with getters:</p>
-                <ul>
-                    <li><code>route.path</code>, <code>route.hash</code>, <code>route.query</code></li>
-                </ul>
+app.mount('#app'); // Mount to DOM
+app.unmount(); // Cleanup</code></pre>
 
-                <h3>Utilities</h3>
-                <ul>
-                    <li><code>nextTick(fn)</code> — schedule <code>fn</code> on the microtask queue (useful after DOM updates).</li>
-                    <li><code>unref(v)</code> — returns <code>v.value</code> if <code>v</code> is a ref, otherwise <code>v</code>.</li>
-                    <li><code>toRef(obj, key)</code> — create a proxy ref pointing to <code>obj[key]</code>.</li>
-                </ul>
+                <h3><code>use(plugin, options?)</code> <span class="badge badge-new">NEW</span></h3>
+                <p>Install a plugin to extend Zog.js functionality.</p>
+                <pre><code>const MyPlugin = {
+    install(zog, options) {
+        // Plugin logic here
+        console.log('Plugin installed!', options);
+    }
+};
+
+use(MyPlugin, { theme: 'dark' });</code></pre>
             </section>
 
             <section id="examples">
                 <h2>Examples</h2>
 
-                <h3>Simple counter (HTML + script)</h3>
-                <pre><code><span class="token-keyword">&lt;div</span> <span class="token-variable">id</span>=<span class="token-string">"counter"</span><span class="token-keyword">&gt;</span>
-  <span class="token-keyword">&lt;p&gt;</span>Count: <span class="token-keyword">&lt;span</span> <span class="token-variable">z-text</span>=<span class="token-string">"count"</span><span class="token-keyword">&gt;&lt;/span&gt;&lt;/p&gt;</span>
-  <span class="token-keyword">&lt;button</span> <span class="token-variable">@click</span>=<span class="token-string">"inc"</span><span class="token-keyword">&gt;</span>+1<span class="token-keyword">&lt;/button&gt;</span>
-<span class="token-keyword">&lt;/div&gt;</span>
+                <h3>Simple Counter</h3>
+                <pre><code>&lt;div id="counter"&gt;
+  &lt;p&gt;Count: &lt;span z-text="count"&gt;&lt;/span&gt;&lt;/p&gt;
+  &lt;button @click="inc"&gt;+1&lt;/button&gt;
+&lt;/div&gt;
 
-<span class="token-keyword">&lt;script</span> <span class="token-variable">type</span>=<span class="token-string">"module"</span><span class="token-keyword">&gt;</span>
-<span class="token-keyword">import</span> { createApp, ref } <span class="token-keyword">from</span> <span class="token-string">'./zog.js'</span>;
+&lt;script type="module"&gt;
+import { createApp, ref } from 'https://cdn.zogjs.com/zog.es.js';
 
 createApp(() => {
   const count = ref(0);
   const inc = () => count.value++;
   return { count, inc };
 }).mount('#counter');
-<span class="token-keyword">&lt;/script&gt;</span></code></pre>
+&lt;/script&gt;</code></pre>
 
-                <h3>Todo list (reactive object + z-for)</h3>
-                <pre><code><span class="token-keyword">&lt;div</span> <span class="token-variable">id</span>=<span class="token-string">"todo"</span><span class="token-keyword">&gt;</span>
-  <span class="token-keyword">&lt;input</span> <span class="token-variable">z-model</span>=<span class="token-string">"newItem"</span> <span class="token-variable">placeholder</span>=<span class="token-string">"Add todo"</span> <span class="token-keyword">/&gt;</span>
-  <span class="token-keyword">&lt;button</span> <span class="token-variable">@click</span>=<span class="token-string">"add"</span><span class="token-keyword">&gt;</span>Add<span class="token-keyword">&lt;/button&gt;</span>
+                <h3>Todo List with Reactive Arrays</h3>
+                <pre><code>&lt;div id="todo"&gt;
+  &lt;input z-model="newItem" placeholder="Add todo" /&gt;
+  &lt;button @click="add"&gt;Add&lt;/button&gt;
 
-  <span class="token-keyword">&lt;ul&gt;</span>
-    <span class="token-keyword">&lt;li</span> <span class="token-variable">z-for</span>=<span class="token-string">"(item, i) in todos"</span><span class="token-keyword">&gt;</span>
+  &lt;ul&gt;
+    &lt;li z-for="(item, i) in todos" :key="item"&gt;
       {{ i + 1 }}. {{ item }}
-      <span class="token-keyword">&lt;button</span> <span class="token-variable">@click</span>=<span class="token-string">"remove(i)"</span><span class="token-keyword">&gt;</span>remove<span class="token-keyword">&lt;/button&gt;</span>
-    <span class="token-keyword">&lt;/li&gt;</span>
-  <span class="token-keyword">&lt;/ul&gt;</span>
-<span class="token-keyword">&lt;/div&gt;</span>
+      &lt;button @click="remove(i)"&gt;remove&lt;/button&gt;
+    &lt;/li&gt;
+  &lt;/ul&gt;
+&lt;/div&gt;
 
-<span class="token-keyword">&lt;script</span> <span class="token-variable">type</span>=<span class="token-string">"module"</span><span class="token-keyword">&gt;</span>
-<span class="token-keyword">import</span> { createApp, reactive, ref } <span class="token-keyword">from</span> <span class="token-string">'./zog.js'</span>;
+&lt;script type="module"&gt;
+import { createApp, reactive, ref } from 'https://cdn.zogjs.com/zog.es.js';
 
 createApp(() => {
   const state = reactive({ todos: ['Buy milk'] });
@@ -596,37 +531,37 @@ createApp(() => {
     state.todos.splice(i, 1);
   }
 
-  return {
-    todos: state.todos,
-    newItem,
-    add,
-    remove
-  };
+  return { todos: state.todos, newItem, add, remove };
 }).mount('#todo');
-<span class="token-keyword">&lt;/script&gt;</span></code></pre>
+&lt;/script&gt;</code></pre>
 
-                <h3>Conditional rendering & raw HTML</h3>
-                <pre><code><span class="token-keyword">&lt;div</span> <span class="token-variable">id</span>=<span class="token-string">"cond"</span><span class="token-keyword">&gt;</span>
-  <span class="token-keyword">&lt;button</span> <span class="token-variable">@click</span>=<span class="token-string">"toggle"</span><span class="token-keyword">&gt;</span>Toggle<span class="token-keyword">&lt;/button&gt;</span>
-  <span class="token-keyword">&lt;template</span> <span class="token-variable">z-if</span>=<span class="token-string">"show"</span><span class="token-keyword">&gt;</span>
-    <span class="token-keyword">&lt;p</span> <span class="token-variable">z-html</span>=<span class="token-string">"htmlContent"</span><span class="token-keyword">&gt;&lt;/p&gt;</span>
-  <span class="token-keyword">&lt;/template&gt;</span>
-<span class="token-keyword">&lt;/div&gt;</span>
+                <h3>Dynamic Styling and Classes</h3>
+                <pre><code>&lt;div id="styling"&gt;
+  &lt;button @click="toggleActive"&gt;Toggle Active&lt;/button&gt;
+  &lt;div 
+    :class="{ active: isActive, 'text-bold': true }"
+    :style="{ color: textColor, fontSize: size + 'px' }"&gt;
+    Styled content
+  &lt;/div&gt;
+&lt;/div&gt;
 
-<span class="token-keyword">&lt;script</span> <span class="token-variable">type</span>=<span class="token-string">"module"</span><span class="token-keyword">&gt;</span>
-<span class="token-keyword">import</span> { createApp, ref } <span class="token-keyword">from</span> <span class="token-string">'./zog.js'</span>;
+&lt;script type="module"&gt;
+import { createApp, ref } from 'https://cdn.zogjs.com/zog.es.js';
 
 createApp(() => {
-  const show = ref(true);
-  const htmlContent = ref('<em>Rendered HTML</em>');
-  const toggle = () => show.value = !show.value;
-  return { show, htmlContent, toggle };
-}).mount('#cond');
-<span class="token-keyword">&lt;/script&gt;</span></code></pre>
+  const isActive = ref(false);
+  const textColor = ref('blue');
+  const size = ref(16);
+  
+  const toggleActive = () => isActive.value = !isActive.value;
+  
+  return { isActive, textColor, size, toggleActive };
+}).mount('#styling');
+&lt;/script&gt;</code></pre>
             </section>
 
             <section id="template-directives">
-                <h2>Template directive quick reference</h2>
+                <h2>Template Directives</h2>
                 <table>
                     <thead>
                         <tr>
@@ -650,6 +585,11 @@ createApp(() => {
                             <td><code>z-for</code></td>
                             <td>Loop: <code>item in list</code> or <code>(item, i) in list</code></td>
                             <td><code>&lt;li z-for="(item, i) in items"&gt;{{ i }} - {{ item }}&lt;/li&gt;</code></td>
+                        </tr>
+                        <tr>
+                            <td><code>:key</code></td>
+                            <td>Unique key for z-for optimization</td>
+                            <td><code>&lt;li z-for="item in items" :key="item.id"&gt;</code></td>
                         </tr>
                         <tr>
                             <td><code>z-text</code></td>
@@ -676,48 +616,119 @@ createApp(() => {
                             <td>Event listener</td>
                             <td><code>&lt;button @click="handle"&gt;Click&lt;/button&gt;</code></td>
                         </tr>
+                        <tr>
+                            <td><code>:attribute</code></td>
+                            <td>Dynamic attribute binding</td>
+                            <td><code>&lt;div :id="dynamicId" :disabled="isDisabled"&gt;</code></td>
+                        </tr>
+                        <tr>
+                            <td><code>:class</code></td>
+                            <td>Dynamic class binding (object/string)</td>
+                            <td><code>&lt;div :class="{ active: isActive }"&gt;</code></td>
+                        </tr>
+                        <tr>
+                            <td><code>:style</code></td>
+                            <td>Dynamic style binding (object)</td>
+                            <td><code>&lt;div :style="{ color: textColor }"&gt;</code></td>
+                        </tr>
                     </tbody>
                 </table>
                 <p><strong>Notes:</strong></p>
                 <ul>
                     <li>Event directive accepts a scope function or expression (<code>@click="doSomething"</code> where <code>doSomething</code> exists in scope).</li>
                     <li><code>z-for</code> supports <code>in</code> and <code>of</code> and <code>(item, index)</code> tuple syntax.</li>
+                    <li>Use <code>:key</code> in <code>z-for</code> loops for better performance when lists change.</li>
+                    <li>Boolean attributes (like <code>disabled</code>, <code>checked</code>) are handled automatically with <code>:</code> binding.</li>
                 </ul>
             </section>
 
-            <section id="router-usage">
-                <h2>Router usage (reactive snapshot)</h2>
-                <p>Zog.js exposes a small reactive <code>route</code> object:</p>
-                <pre><code><span class="token-keyword">import</span> { route } <span class="token-keyword">from</span> <span class="token-string">'./zog.js'</span>;
+            <section id="plugins">
+                <h2>Plugin System <span class="badge badge-new">NEW</span></h2>
+                <p>Zog.js supports a plugin architecture to extend functionality. Plugins receive access to core APIs and can add custom features.</p>
 
-watchEffect(() => {
-  console.log('current path:', route.path);
-});</code></pre>
-                <p><code>route</code> updates automatically on <code>hashchange</code> and <code>popstate</code>.</p>
+                <h3>Creating a Plugin</h3>
+                <pre><code>// my-plugin.js
+export default {
+    install(zog, options) {
+        const { reactive, ref, watchEffect } = zog;
+        
+        // Add custom functionality
+        console.log('My plugin installed!', options);
+        
+        // Access internal utilities if needed
+        const { Dep, ReactiveEffect } = zog.utils;
+    }
+};</code></pre>
+
+                <h3>Using a Plugin</h3>
+                <pre><code>import { use } from 'https://cdn.zogjs.com/zog.es.js';
+import MyPlugin from './my-plugin.js';
+
+use(MyPlugin, { debug: true });</code></pre>
+
+                <h3>Plugin Use Cases</h3>
+                <ul>
+                    <li>Router implementations</li>
+                    <li>State management solutions</li>
+                    <li>Development tools</li>
+                    <li>Form validation</li>
+                    <li>Animation helpers</li>
+                    <li>HTTP clients</li>
+                </ul>
             </section>
 
             <section id="tips">
                 <h2>Tips & Gotchas</h2>
                 <ul>
                     <li>Template expressions are evaluated against the scope object returned by your <code>setup()</code> function.</li>
-                    <li>Use <code>toRef(obj, 'prop')</code> to pass a reference to a nested property when a ref is required.</li>
-                    <li>Use <code>nextTick()</code> if you need to run code after the DOM updates caused by reactive changes.</li>
+                    <li>Refs must be accessed with <code>.value</code> in JavaScript, but are automatically unwrapped in templates.</li>
+                    <li>Array reactivity is fully supported - methods like <code>push</code>, <code>pop</code>, <code>splice</code> trigger updates automatically.</li>
+                    <li>Use <code>:key</code> in <code>z-for</code> loops for better performance when lists change.</li>
                     <li>The library is ESM: import using <code>type="module"</code> or bundle with a bundler (Vite, Webpack, Rollup).</li>
+                    <li><code>z-html</code> can cause XSS vulnerabilities - only use with trusted content.</li>
+                </ul>
+
+                <h3>Performance Optimizations <span class="badge badge-updated">UPDATED</span></h3>
+                <p>Zog.js v2.2 includes several optimizations:</p>
+                <ul>
+                    <li><strong>Expression caching</strong>: Compiled template expressions are cached (limit: 200) for better performance</li>
+                    <li><strong>Unified array handling</strong>: Single method handler for all array operations</li>
+                    <li><strong>Key-based diffing</strong>: Use <code>:key</code> attribute in <code>z-for</code> loops for efficient list updates</li>
+                    <li><strong>Batched updates</strong>: Reactive changes are batched and executed in microtasks</li>
+                    <li><strong>Lazy computed values</strong>: Computed properties only recalculate when accessed and dependencies change</li>
                 </ul>
             </section>
 
             <section id="development">
-                <h2>Development & contributing</h2>
+                <h2>Development & Contributing</h2>
                 <ul>
-                    <li>The repository contains the single-file implementation <code>zog.js</code>. Tests and build tooling are not included by default.</li>
-                    <li>To experiment, create an HTML page with <code>&lt;script type="module"&gt;</code> and import <code>./zog.js</code>.</li>
+                    <li>The repository contains the single-file implementation <code>zog.js</code>.</li>
+                    <li>To experiment, create an HTML page with <code>&lt;script type="module"&gt;</code> and import from the CDN or local file.</li>
                     <li>If you plan to add features or refactors:
                         <ul>
                             <li>Keep the public API stable (exports listed above).</li>
                             <li>Document any additional template directives clearly.</li>
                             <li>Add minimal reproducible examples for each new feature.</li>
+                            <li>Ensure optimizations don't introduce bugs - test thoroughly.</li>
                         </ul>
                     </li>
+                </ul>
+
+                <h3>Migration from v2.0/v2.1</h3>
+                <p><strong>Removed in v2.2:</strong></p>
+                <ul>
+                    <li><code>route</code> object - create a router plugin instead</li>
+                    <li><code>nextTick()</code> - use <code>Promise.resolve().then(fn)</code></li>
+                    <li><code>toRaw()</code>, <code>toRef()</code>, <code>unref()</code> - use alternative patterns</li>
+                    <li><code>isRef()</code>, <code>isReactive()</code> - check <code>obj._isRef</code></li>
+                    <li><code>shallowRef()</code>, <code>shallowReactive()</code> - use regular <code>ref</code>/<code>reactive</code></li>
+                    <li><code>watch()</code> - use <code>watchEffect</code></li>
+                </ul>
+                <p><strong>Added in v2.2:</strong></p>
+                <ul>
+                    <li>Plugin system via <code>use(plugin, options)</code></li>
+                    <li>Expression caching for better performance</li>
+                    <li>Optimized array method handling</li>
                 </ul>
             </section>
 
@@ -750,31 +761,16 @@ watchEffect(() => {
         </div>
     </footer>
 
-    <!-- Zog.js CDN -->
+    <!-- Zog.js from CDN -->
     <script type="module">
-        import { createApp, ref, watchEffect, nextTick } from 'https://cdn.jsdelivr.net/npm/@vue/reactivity@3.4.0/dist/reactivity.esm-bundler.js';
-
-        // Simple syntax highlighting
-        function highlightCode() {
-            document.querySelectorAll('pre code').forEach(block => {
-                const html = block.innerHTML
-                    .replace(/&lt;/g, '<span class="token-operator">&lt;</span>')
-                    .replace(/&gt;/g, '<span class="token-operator">&gt;</span>')
-                    .replace(/([A-Za-z_][A-Za-z0-9_]*)\(/g, '<span class="token-function">$1</span>(')
-                    .replace(/(const|let|var|import|from|export|function|return|if|else|for|in|of|new)\b/g, '<span class="token-keyword">$1</span>')
-                    .replace(/(['"`])([^'"`]*)['"`]/g, '<span class="token-string">$1$2$1</span>')
-                    .replace(/(\d+)/g, '<span class="token-number">$1</span>')
-                    .replace(/(\/\*[\s\S]*?\*\/|\/\/.*$)/gm, '<span class="token-comment">$1</span>');
-                block.innerHTML = html;
-            });
-        }
+        import { createApp, ref, watchEffect } from 'https://cdn.zogjs.com/zog.es.js';
 
         createApp(() => {
             const activeSection = ref('highlights');
             const sections = [
                 'highlights', 'quick-start', 'core-concepts', 
                 'api-reference', 'examples', 'template-directives',
-                'router-usage', 'tips', 'development', 'license'
+                'plugins', 'tips', 'development', 'license'
             ];
 
             // Smooth scroll to section
@@ -837,8 +833,7 @@ watchEffect(() => {
             window.addEventListener('scroll', onScroll, { passive: true });
             
             // Initial highlight
-            nextTick(() => {
-                highlightCode();
+            Promise.resolve().then(() => {
                 handleScroll();
             });
 
