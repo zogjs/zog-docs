@@ -1,0 +1,258 @@
+# Zog.js (v0.3.0) — Minimal Reactive UI + DOM Compiler
+
+Zog.js is a tiny reactive UI framework that compiles and binds a DOM subtree using directives and mustache-style interpolation. It provides:
+- A reactive core (reactive/ref/computed/watchEffect)
+- A DOM compiler (compile) that wires bindings to effects
+- A small app wrapper (createApp) with cleanup + plugin/hooks
+
+This file is written for LLMs and code assistants to generate correct Zog.js code.
+
+---
+
+## Public API (Exports)
+
+Core reactivity:
+- reactive(target): Deep reactive Proxy for objects/arrays
+- ref(value): Reactive box with `.value`
+- computed(getter): Lazy cached ref-like computed value (read-only)
+- watchEffect(fn, opts?): Runs `fn` reactively, returns a stop() function
+- nextTick(fn): Queue a microtask (Promise.then)
+
+DOM/compiler & extensibility:
+- compile(rootEl, scope, scopeController): Compile/bind a DOM subtree (advanced)
+- createApp(setup): Create an app instance with `.use()`, `.mount()`, `.unmount()`
+- addHook(name, fn), removeHook(name, fn): Hook system for compilation/effects/errors
+
+NOTE:
+- `compile()` is exported but intended as an advanced/internal API.
+- Zog.js is an ES module; use `<script type="module">`.
+
+---
+
+## Quick Start
+
+### HTML
+<div id="app">
+  <h1>{{ title }}</h1>
+  <button @click="inc">Count: {{ count }}</button>
+
+  <input z-model="name" placeholder="Type your name" />
+  <p z-text="greeting"></p>
+
+  <ul>
+    <li z-for="(item, i) in items" :key="item.id">
+      {{ i }} — {{ item.label }}
+      <button @click="removeItem(i)">remove</button>
+    </li>
+  </ul>
+
+  <p z-if="count > 3">Count is big</p>
+  <p z-else>Keep clicking…</p>
+</div>
+
+### JS (ES Module)
+import { createApp, ref, reactive, computed } from "./zog.js";
+
+createApp(() => {
+  const title = ref("Hello Zog");
+  const count = ref(0);
+
+  const name = ref("");
+  const items = reactive([
+    { id: 1, label: "First" },
+    { id: 2, label: "Second" }
+  ]);
+
+  const greeting = computed(() => `Hi, ${name || "friend"}!`);
+
+  function inc() { count.value++; } // in JS, refs use .value
+  function removeItem(i) { items.splice(i, 1); }
+
+  return { title, count, name, items, greeting, inc, removeItem };
+}).mount("#app");
+
+---
+
+## Reactivity Model
+
+### ref(value)
+- Returns `{ _isRef: true, get value(), set value() }`
+- Use `.value` in normal JS code.
+
+### reactive(objectOrArray)
+- Deep reactive Proxy (nested objects/arrays become reactive)
+- Arrays have special wrappers for mutators/iterators to trigger updates.
+
+### computed(getter)
+- Lazy: computed value is only evaluated on first access or when invalidated.
+- Read-only (no setter).
+
+### watchEffect(fn, { scheduler }?)
+- Automatically tracks dependencies used inside `fn`.
+- Re-runs when dependencies change.
+- Returns stop() to cleanup.
+- Effects are batched in a Promise microtask queue.
+
+---
+
+## Template Expressions: IMPORTANT REF UNWRAPPING RULE
+
+Zog.js evaluates template expressions via an internal evaluator.
+
+1) In template bindings/interpolations ({{ }}, :attr, z-text, z-show, z-for expressions, z-if expressions):
+- Top-level scope refs are AUTO-UNWRAPPED.
+- That means: use `{{ count }}` (NOT `{{ count.value }}`).
+
+2) In inline event expressions (e.g. @click="count.value++"):
+- Scope values are passed as-is (refs are NOT auto-unwrapped).
+- If you write inline expressions that touch refs, use `.value` explicitly.
+
+Recommendation:
+- Prefer method handlers: `@click="inc"` where `inc()` updates refs safely.
+- If you use inline code, use `.value` for refs.
+
+---
+
+## Directives & Syntax
+
+### Interpolation
+- Text nodes support: `Hello {{ expression }}`
+- Expression is plain JS.
+
+### Conditional Rendering
+- z-if="expression"
+- z-else-if="expression"
+- z-else
+Behavior:
+- Branches are cloned as templates.
+- Only the active branch is in the DOM and compiled.
+
+### List Rendering
+- z-for="item in items"
+- z-for="(item, index) in items"
+Also supports `of` as an alias for `in/of`.
+
+Keyed lists:
+- Use `:key="expression"` or `z-key="expression"`.
+- Key expression is evaluated with `item` and `index` in scope.
+
+### Content / Visibility
+- z-text="expression"   -> sets textContent (safe for HTML injection)
+- z-html="expression"   -> sets innerHTML (TRUSTED content only)
+- z-show="expression"   -> toggles `display: none`
+
+### Two-way Binding
+- z-model="pathOrRef"
+Works with:
+- input (text), textarea, select
+- checkbox/radio (uses checked)
+Notes:
+- For ref targets: use `z-model="name"` where name is a ref
+- For reactive paths: use `z-model="form.email"`
+
+### Event Handling
+- @click="handlerOrExpression"
+- z-on:click="handlerOrExpression"
+Rules:
+- If the value matches a function in scope, it is called with (event).
+- Otherwise it is treated as a JS statement and executed with `e` as the event variable.
+
+Limitations:
+- Event modifiers (e.g. @click.prevent, @keyup.enter) are NOT parsed/handled.
+
+### Attribute Binding
+- :attr="expression"       (e.g. :href, :title, :disabled)
+- :class="expression"      supports string or object map
+- :style="expression"      supports object map (Object.assign into el.style)
+
+Also supported:
+- z-src="expression", z-id="expression", z-disabled="expression", ...
+  Any `z-<attr>` not equal to z-text/z-html/z-show maps to a DOM attribute `<attr>`.
+
+Boolean attributes:
+- If expression returns boolean: true => set attribute, false => remove it.
+
+---
+
+## createApp(setup)
+
+createApp(setup) returns an app with:
+- .use(plugin, options?)
+- .mount(cssSelector)
+- .unmount()
+
+setup() must return the scope object containing:
+- reactive state (reactive/ref/computed)
+- methods (functions) referenced by events
+
+Unmount:
+- stops all effects and removes all event listeners registered by the compiler.
+
+---
+
+## Plugins & Hooks
+
+### Plugins
+A plugin must be an object with:
+- install(api, options) -> optional return value
+
+The `api` includes:
+- reactive, ref, computed, watchEffect, createApp
+- addHook, removeHook
+- utils: { isObj, evalExp, Dep, ReactiveEffect, Scope, compile }
+
+### Hooks
+Supported hook names:
+- beforeCompile(el, scope, scopeController)
+  - If ANY hook returns false, compilation for that element is cancelled.
+- afterCompile(el, scope, scopeController)
+- beforeEffect(effect)
+- onError(err, phaseName, args)
+
+Notes:
+- Hook errors call onError where possible.
+- Effect execution errors are logged to console; treat your effects as safe.
+
+---
+
+## Security Notes (MUST READ)
+
+Zog.js evaluates expressions using the Function constructor.
+That means:
+- Templates and expressions MUST be trusted (do not compile untrusted HTML).
+- z-html injects raw HTML and is NOT sanitized.
+
+If you need untrusted content:
+- Use z-text (textContent) instead of z-html.
+- Do not compile user-provided templates.
+
+---
+
+## Browser Compatibility
+
+- Requires ES Proxy (modern browsers).
+- ES modules are required (`type="module"`).
+- Not compatible with Internet Explorer.
+
+---
+
+## Known Limitations / Non-goals
+
+- No Virtual DOM; this is direct DOM compilation/binding.
+- No SSR/Node DOM compilation (compiler expects a browser DOM).
+- No built-in event modifiers parsing.
+- No “component files”; scope is plain JS returned by setup().
+
+---
+
+## Minimal Patterns for LLMs
+
+Good:
+- Use methods for events: `@click="inc"`
+- Use refs in JS with `.value`
+- Use refs in templates without `.value`
+
+Avoid:
+- @click="count++"  (breaks if count is a ref)
+Use:
+- @click="count.value++"  OR better: @click="inc"
