@@ -256,3 +256,161 @@ Avoid:
 - @click="count++"  (breaks if count is a ref)
 Use:
 - @click="count.value++"  OR better: @click="inc"
+
+
+---
+
+## Plugin Development: Advanced Hook & Compilation Patterns
+
+### Understanding Compilation Timing with z-if
+
+CRITICAL: When z-if compiles:
+1. Element is cloned as a template (cloneNode(true))
+2. Hooks (beforeCompile/afterCompile) run on the TEMPLATE CLONE, not the final DOM element
+3. The actual DOM element is inserted later when the condition becomes true
+4. compile() is called on the inserted element, triggering hooks again
+
+This means:
+- `document.body.contains(el)` may be FALSE in beforeCompile/afterCompile hooks
+- Direct DOM operations in hooks may fail if element isn't mounted yet
+- Element references can become stale when z-if re-renders
+
+### Hook Selection Strategy
+
+**Use beforeCompile when:**
+- You want to prevent default compilation (return false)
+- You need to process attributes before core directives run
+- You're implementing alternative compilation logic (z-once, z-pre)
+
+**Use afterCompile when:**
+- Element is guaranteed to be in DOM (not inside z-if)
+- You need to observe/modify after full compilation
+
+**For directives requiring DOM presence:**
+Use watchEffect to detect when element enters DOM:
+```javascript
+addHook('beforeCompile', (el, scope, cs) => {
+  if (el.hasAttribute('my-directive')) {
+    el.removeAttribute('my-directive');
+    
+    let cleanup = null;
+    cs.addEffect(watchEffect(() => {
+      const inDOM = document.body.contains(el);
+      
+      if (inDOM && !cleanup) {
+        // Setup: element is now in DOM
+        cleanup = setupMyDirective(el);
+      } else if (!inDOM && cleanup) {
+        // Teardown: element removed from DOM
+        cleanup();
+        cleanup = null;
+      }
+    }));
+    
+    cs.addEffect(() => cleanup?.());
+  }
+});
+```
+
+### Working with z-if Elements in Plugins
+
+**Problem:** Element references become invalid when z-if re-clones.
+
+**Solution 1 - Use unique markers:**
+```javascript
+const uniqueId = 'my-dir-' + Math.random().toString(36).substr(2, 9);
+el.setAttribute('data-my-marker', uniqueId);
+
+// Later, find the real DOM element:
+const realEl = document.querySelector(`[data-my-marker="${uniqueId}"]`);
+if (realEl && realEl.contains(e.target)) { /* ... */ }
+```
+
+**Solution 2 - Use watchEffect with DOM checks:**
+Don't cache element references. Always check `document.body.contains(el)` in event handlers.
+
+### z-for Item Reference Behavior
+
+**IMPORTANT:** z-for ALWAYS wraps items in ref(), regardless of source type:
+```javascript
+// Given:
+const list = reactive([{ name: 'Alice' }, { name: 'Bob' }]);
+
+// In template:
+<div z-for="item in list">
+  {{ item.name }}        <!-- ✅ Works: auto-unwrapped in templates -->
+  @click="item.value"    <!-- ✅ item is a ref, use .value -->
+  @click="update(item)"  <!-- ⚠️  item is { _isRef: true, value: {...} } -->
+</div>
+```
+
+**Why?** z-for needs mutable references to update items when the list changes:
+```javascript
+// From zog.js line 226:
+const itemRef = ref(val);
+const s = new Scope({ ...scope, [itemName]: itemRef, [indexName]: indexRef });
+```
+
+**In plugin code:** If processing z-for scope, expect items to be refs:
+```javascript
+// In event handler receiving item:
+const actualValue = item._isRef ? item.value : item;
+```
+
+### Ref Unwrapping Rules (Complete Reference)
+
+**Template expressions (auto-unwrapped):**
+- `{{ count }}` ✅
+- `:disabled="isDisabled"` ✅
+- `z-if="isVisible"` ✅
+- `z-for="item in items"` ✅ (items unwrapped, but each item becomes ref)
+- `z-text="message"` ✅
+
+**Inline event handlers (NOT unwrapped):**
+- `@click="count++"` ❌ Breaks if count is ref
+- `@click="count.value++"` ✅ Must use .value
+- `@click="item.name = 'x'"` ❌ If item is z-for item (it's a ref)
+- `@click="item.value.name = 'x'"` ✅ Correct for z-for items
+
+**Best practice:** Use method handlers to avoid confusion:
+```javascript
+@click="increment"  // where increment() { count.value++ }
+```
+
+### Plugin Event Handler Processing
+
+When processing event handlers in plugins, scope values are passed as-is:
+```javascript
+Function(...Object.keys(scope), 'e', `"use strict";${expression}`)
+  (...Object.values(scope), e);
+  // ⚠️ Object.values(scope) includes refs as { _isRef: true, value: ... }
+```
+
+**Don't unwrap in plugins** unless you have a specific reason. Users should handle refs in their event code.
+
+### Cleanup Patterns
+
+Always register cleanup in scopeController:
+```javascript
+cs.addEffect(() => {
+  // Cleanup function
+  document.removeEventListener('click', handler, true);
+});
+```
+
+For listeners:
+```javascript
+el.addEventListener('click', handler);
+cs.addListener(el, 'click', handler);
+// Scope cleanup will call el.removeEventListener automatically
+```
+
+### Common Plugin Pitfalls
+
+1. **Assuming element is in DOM**: Always check `document.body.contains(el)`
+2. **Caching element references**: They become stale with z-if
+3. **Not handling cleanup**: Memory leaks from event listeners
+4. **Unwrapping refs unnecessarily**: Let users handle .value in their code
+5. **Using afterCompile for z-if elements**: Element may not be in DOM yet
+
+---
