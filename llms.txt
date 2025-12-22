@@ -40,9 +40,9 @@ NOTE:
   <p z-text="greeting"></p>
 
   <ul>
-    <li z-for="(item, i) in items" :key="item.id">
-      {{ i }} — {{ item.label }}
-      <button @click="removeItem(i)">remove</button>
+    <li z-for="item in items" :key="item.id">
+      {{ item.label }}
+      <button @click="removeItem(item.value.id)">remove</button>
     </li>
   </ul>
 
@@ -66,7 +66,14 @@ createApp(() => {
   const greeting = computed(() => `Hi, ${name || "friend"}!`);
 
   function inc() { count.value++; } // in JS, refs use .value
-  function removeItem(i) { items.splice(i, 1); }
+  
+  // IMPORTANT: Use ID-based operations, not index-based
+  function removeItem(itemId) { 
+    const index = items.findIndex(item => item.id === itemId);
+    if (index > -1) {
+      items.splice(index, 1);
+    }
+  }
 
   return { title, count, name, items, greeting, inc, removeItem };
 }).mount("#app");
@@ -136,6 +143,12 @@ Keyed lists:
 - Use `:key="expression"` or `z-key="expression"`.
 - Key expression is evaluated with `item` and `index` in scope.
 
+**Important:** In z-for loops:
+- `item` is wrapped in a ref (use `item.value` in event handlers)
+- `index` is a plain number (use directly without `.value`)
+
+**CRITICAL:** Always use item IDs for operations (delete, update, etc.), never use index! See "Best Practices for List Operations" below.
+
 ### Content / Visibility
 - z-text="expression"   -> sets textContent (safe for HTML injection)
 - z-html="expression"   -> sets innerHTML (TRUSTED content only)
@@ -190,58 +203,106 @@ Unmount:
 
 ---
 
-## Plugins & Hooks
+## Best Practices for List Operations
 
-### Plugins
-A plugin must be an object with:
-- install(api, options) -> optional return value
+### Why You Should NEVER Use Index for Operations
 
-The `api` includes:
-- reactive, ref, computed, watchEffect, createApp
-- addHook, removeHook
-- utils: { isObj, evalExp, Dep, ReactiveEffect, Scope, compile }
+**Problem:** Array indices change when items are added or removed.
 
-### Hooks
-Supported hook names:
-- beforeCompile(el, scope, scopeController)
-  - If ANY hook returns false, compilation for that element is cancelled.
-- afterCompile(el, scope, scopeController)
-- beforeEffect(effect)
-- onError(err, phaseName, args)
+```javascript
+// ❌ WRONG - Using index (THIS WILL CAUSE BUGS!)
+const todos = reactive([
+  { id: 1, text: 'Task 1' },
+  { id: 2, text: 'Task 2' },
+  { id: 3, text: 'Task 3' }
+]);
 
-Notes:
-- Hook errors call onError where possible.
-- Effect execution errors are logged to console; treat your effects as safe.
+function removeTodo(index) {
+  todos.splice(index, 1); // BUG: Wrong item gets removed after deletions!
+}
 
----
+function toggleTodo(index) {
+  todos[index].completed = !todos[index].completed; // BUG: Wrong item gets toggled!
+}
+```
 
-## Security Notes (MUST READ)
+**What happens:**
+1. User removes item at index 1
+2. Item at index 2 becomes index 1
+3. Next operation on "index 1" affects the wrong item!
 
-Zog.js evaluates expressions using the Function constructor.
-That means:
-- Templates and expressions MUST be trusted (do not compile untrusted HTML).
-- z-html injects raw HTML and is NOT sanitized.
+### Correct Approach: Use Stable IDs
 
-If you need untrusted content:
-- Use z-text (textContent) instead of z-html.
-- Do not compile user-provided templates.
+```javascript
+// ✅ CORRECT - Using ID
+const todos = reactive([
+  { id: 1, text: 'Task 1', completed: false },
+  { id: 2, text: 'Task 2', completed: false },
+  { id: 3, text: 'Task 3', completed: false }
+]);
 
----
+function removeTodo(todoId) {
+  const index = todos.findIndex(t => t.id === todoId);
+  if (index > -1) {
+    todos.splice(index, 1);
+  }
+}
 
-## Browser Compatibility
+function toggleTodo(todoId) {
+  const todo = todos.find(t => t.id === todoId);
+  if (todo) {
+    todo.completed = !todo.completed;
+  }
+}
+```
 
-- Requires ES Proxy (modern browsers).
-- ES modules are required (`type="module"`).
-- Not compatible with Internet Explorer.
+### Template Usage with IDs
 
----
+**Remember:** In z-for, items are refs, so use `item.value.id` in event handlers:
 
-## Known Limitations / Non-goals
+```html
+<!-- ✅ CORRECT -->
+<div z-for="todo in todos" :key="todo.id">
+  {{ todo.text }}
+  <button @click="toggleTodo(todo.value.id)">Toggle</button>
+  <button @click="removeTodo(todo.value.id)">Delete</button>
+</div>
 
-- No Virtual DOM; this is direct DOM compilation/binding.
-- No SSR/Node DOM compilation (compiler expects a browser DOM).
-- No built-in event modifiers parsing.
-- No “component files”; scope is plain JS returned by setup().
+<!-- ❌ WRONG - Using index -->
+<div z-for="(todo, index) in todos" :key="todo.id">
+  {{ todo.text }}
+  <button @click="toggleTodo(index)">Toggle</button> <!-- BUG! -->
+  <button @click="removeTodo(index)">Delete</button> <!-- BUG! -->
+</div>
+```
+
+### When Index is Acceptable
+
+Index is ONLY safe for:
+- **Display purposes**: `{{ index + 1 }}. {{ item.label }}`
+- **Non-mutating operations**: Sorting, filtering (without modifying original array)
+- **Temporary calculations**: Inside the template expression itself
+
+**Never** pass index to functions that modify the array!
+
+### Generating Unique IDs
+
+```javascript
+// Simple counter
+let nextId = 1;
+function addTodo(text) {
+  todos.push({
+    id: nextId++,
+    text: text,
+    completed: false
+  });
+}
+
+// Or use timestamp + random
+function generateId() {
+  return Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+}
+```
 
 ---
 
@@ -251,12 +312,17 @@ Good:
 - Use methods for events: `@click="inc"`
 - Use refs in JS with `.value`
 - Use refs in templates without `.value`
+- **Always use IDs for list operations**: `@click="removeItem(item.value.id)"`
+- Display index safely: `{{ index + 1 }}. {{ item.name }}`
 
 Avoid:
-- @click="count++"  (breaks if count is a ref)
-Use:
-- @click="count.value++"  OR better: @click="inc"
+- `@click="count++"` (breaks if count is a ref)
+- **`@click="removeItem(index)"` (causes bugs when items are removed!)**
+- **Using index for any mutating operations**
 
+Use:
+- `@click="count.value++"` OR better: `@click="inc"`
+- **`@click="removeItem(item.value.id)"` (stable, safe operations)**
 
 ---
 
@@ -329,33 +395,36 @@ if (realEl && realEl.contains(e.target)) { /* ... */ }
 **Solution 2 - Use watchEffect with DOM checks:**
 Don't cache element references. Always check `document.body.contains(el)` in event handlers.
 
-### z-for Item Reference Behavior
+### z-for Item and Index Behavior
 
-**IMPORTANT:** z-for ALWAYS wraps items in ref(), regardless of source type:
+**IMPORTANT:** z-for wraps items in ref() but index is a plain number:
 ```javascript
 // Given:
-const list = reactive([{ name: 'Alice' }, { name: 'Bob' }]);
+const list = reactive([{ id: 1, name: 'Alice' }, { id: 2, name: 'Bob' }]);
 
 // In template:
-<div z-for="item in list">
-  {{ item.name }}        <!-- ✅ Works: auto-unwrapped in templates -->
-  @click="item.value"    <!-- ✅ item is a ref, use .value -->
-  @click="update(item)"  <!-- ⚠️  item is { _isRef: true, value: {...} } -->
+<div z-for="(item, index) in list">
+  {{ item.name }}                   <!-- ✅ Works: auto-unwrapped in templates -->
+  {{ index }}                       <!-- ✅ Plain number, no unwrapping needed -->
+  @click="item.value.id"            <!-- ✅ item is a ref, use .value in events -->
+  @click="doSomething(item.value.id)" <!-- ✅ Pass ID, not index! -->
+  @click="showNumber(index)"        <!-- ✅ index is plain number (display only!) -->
+  @click="update(item)"             <!-- ⚠️  item is { _isRef: true, value: {...} } -->
 </div>
 ```
 
-**Why?** z-for needs mutable references to update items when the list changes:
+**Why?** z-for needs mutable references to update items when the list changes, but index is just a display value:
 ```javascript
-// From zog.js line 226:
+// From zog.js:
 const itemRef = ref(val);
+const indexRef = index; // Plain number, not wrapped in ref
 const s = new Scope({ ...scope, [itemName]: itemRef, [indexName]: indexRef });
 ```
 
-**In plugin code:** If processing z-for scope, expect items to be refs:
-```javascript
-// In event handler receiving item:
-const actualValue = item._isRef ? item.value : item;
-```
+**In plugin code:** If processing z-for scope:
+- Items are refs: `const actualValue = item._isRef ? item.value : item;`
+- Index is a plain number: use directly without `.value`
+- **Always recommend using IDs for operations, not index**
 
 ### Ref Unwrapping Rules (Complete Reference)
 
@@ -364,17 +433,23 @@ const actualValue = item._isRef ? item.value : item;
 - `:disabled="isDisabled"` ✅
 - `z-if="isVisible"` ✅
 - `z-for="item in items"` ✅ (items unwrapped, but each item becomes ref)
+- `z-for="(item, index) in items"` ✅ (index is plain number)
 - `z-text="message"` ✅
+- `:key="item.id"` ✅ (attributes auto-unwrap)
 
-**Inline event handlers (NOT unwrapped):**
+**Inline event handlers (NOT unwrapped for refs, but index is plain):**
 - `@click="count++"` ❌ Breaks if count is ref
-- `@click="count.value++"` ✅ Must use .value
+- `@click="count.value++"` ✅ Must use .value for refs
 - `@click="item.name = 'x'"` ❌ If item is z-for item (it's a ref)
 - `@click="item.value.name = 'x'"` ✅ Correct for z-for items
+- `@click="doSomething(index)"` ⚠️ Only safe for display, NOT for mutations!
+- `@click="removeItem(item.value.id)"` ✅ Use ID for operations
 
 **Best practice:** Use method handlers to avoid confusion:
 ```javascript
 @click="increment"  // where increment() { count.value++ }
+@click="removeItem(item.value.id)" // Pass ID, handle lookup in method
+@click="displayIndex(index)" // Safe for display purposes only
 ```
 
 ### Plugin Event Handler Processing
@@ -384,6 +459,7 @@ When processing event handlers in plugins, scope values are passed as-is:
 Function(...Object.keys(scope), 'e', `"use strict";${expression}`)
   (...Object.values(scope), e);
   // ⚠️ Object.values(scope) includes refs as { _isRef: true, value: ... }
+  // ⚠️ But z-for index values are plain numbers
 ```
 
 **Don't unwrap in plugins** unless you have a specific reason. Users should handle refs in their event code.
@@ -412,5 +488,59 @@ cs.addListener(el, 'click', handler);
 3. **Not handling cleanup**: Memory leaks from event listeners
 4. **Unwrapping refs unnecessarily**: Let users handle .value in their code
 5. **Using afterCompile for z-if elements**: Element may not be in DOM yet
+6. **Treating z-for index as ref**: Index is a plain number, not a ref
+7. **Recommending index-based operations**: Always recommend ID-based operations for list mutations
+
+---
+
+## Common Mistakes to Avoid
+
+### 1. Using Index for Array Operations
+```javascript
+// ❌ WRONG
+@click="removeItem(index)"
+
+// ✅ CORRECT
+@click="removeItem(item.value.id)"
+```
+
+### 2. Forgetting .value in Event Handlers
+```javascript
+// ❌ WRONG - In template attribute binding
+:key="item.value.id"  // Attributes auto-unwrap!
+
+// ✅ CORRECT - In template attribute binding
+:key="item.id"
+
+// ❌ WRONG - In event handler
+@click="remove(item.id)"  // item is a ref in events!
+
+// ✅ CORRECT - In event handler
+@click="remove(item.value.id)"
+```
+
+### 3. Mixing Up Template vs Event Handler Rules
+```javascript
+// TEMPLATE EXPRESSIONS (auto-unwrap):
+{{ item.name }}          // ✅ Correct
+:disabled="item.active"  // ✅ Correct
+:key="item.id"          // ✅ Correct
+
+// EVENT HANDLERS (NOT auto-unwrapped):
+@click="item.value.name"   // ✅ Correct
+@click="toggle(item.value.id)" // ✅ Correct
+```
+
+### 4. Not Using Unique Keys
+```javascript
+// ❌ WRONG - No key or non-unique key
+<div z-for="item in items">
+
+// ❌ WRONG - Using index as key
+<div z-for="(item, index) in items" :key="index">
+
+// ✅ CORRECT - Using unique ID
+<div z-for="item in items" :key="item.id">
+```
 
 ---
