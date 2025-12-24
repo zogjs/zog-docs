@@ -1,929 +1,318 @@
-# Zog.js v0.4.1 — Minimal Reactive UI Library
+# Zog.js v0.4.7 — Minimal Reactive UI Library
 
-Zog.js is a lightweight reactive UI framework (~3KB gzipped) that provides:
-- Deep reactivity system (reactive/ref/computed/watchEffect)
-- Template compiler with directives (z-if, z-for, z-model, etc.)
-- Mustache-style interpolation {{ }}
-- Hook system for extensibility
-- Plugin architecture
+Zog.js is a lightweight (~5KB) Vue-inspired reactive framework for small/medium projects.
+No build step required. Just include and use.
 
-**This document is for LLMs and AI assistants to generate correct Zog.js code.**
+**This document helps LLMs generate correct Zog.js code.**
 
 ---
 
-## Core API
+## Core Concepts
+
+### Data Types
+- `ref(primitive)` — For primitive values only (string, number, boolean)
+- `reactive(object|array)` — For objects and arrays (deep reactivity)
+- `computed(getter)` — Cached derived values
+
+**IMPORTANT:** ref() throws error if passed object/array. Use reactive() instead.
+
+---
+
+## API Reference
 
 ### Reactivity
-- `reactive(object)` - Creates deep reactive proxy for objects/arrays
-- `ref(value)` - Creates reactive reference with `.value` accessor (auto-wraps objects)
-- `computed(getter)` - Lazy computed value with caching
-- `watchEffect(fn, opts?)` - Auto-tracking reactive effect, returns stop()
+```javascript
+import { ref, reactive, computed, watchEffect } from './zog.js';
 
-### DOM & App
-- `createApp(setup?)` - Creates app with `.mount()`, `.unmount()`, `.use()`
-- `compile(el, scope, scopeCtrl)` - Internal compiler (advanced use)
-- `nextTick(fn)` - Microtask queue
+// ref - primitives only
+const count = ref(0);
+count.value++;              // Use .value in JS
+
+// reactive - objects/arrays
+const state = reactive({ name: 'John', items: [] });
+state.name = 'Jane';        // Direct access
+state.items.push('item');   // Array methods work
+
+// computed - cached
+const double = computed(() => count.value * 2);
+console.log(double.value);  // Use .value to read
+
+// watchEffect - auto-tracking
+const stop = watchEffect(() => console.log(count.value));
+stop(); // cleanup
+```
+
+### Application
+```javascript
+import { createApp, nextTick } from './zog.js';
+
+createApp(() => ({
+  count: ref(0),
+  items: reactive([]),
+  increment() { this.count.value++ }
+}))
+.use(plugin, options)  // optional plugins
+.mount('#app');
+
+nextTick(() => { /* after DOM update */ });
+```
 
 ### Hooks
-- `addHook(name, fn)` - Register hook
-- `removeHook(name, fn)` - Unregister hook
-- Available hooks: `beforeCompile`, `afterCompile`, `beforeEffect`, `onError`
-
----
-
-## Quick Example
-
-```html
-<div id="app">
-  <h1>{{ title }}</h1>
-  <p>Count: {{ count }}</p>
-  <button @click="increment">+1</button>
-  
-  <input z-model="name" />
-  <p>Hello {{ name }}!</p>
-  
-  <ul>
-    <li z-for="(item, index) in items" :key="item.id">
-      {{ index + 1 }}. {{ item.text }}
-      <button @click="remove(item.id)">Delete</button>
-    </li>
-  </ul>
-</div>
-
-<script type="module">
-import { createApp, ref, reactive } from './zog.js';
-
-createApp(() => {
-  const title = ref('My App');
-  const count = ref(0);
-  const name = ref('');
-  const items = reactive([
-    { id: 1, text: 'First' },
-    { id: 2, text: 'Second' }
-  ]);
-  
-  function increment() {
-    count.value++;
-  }
-  
-  function remove(id) {
-    const idx = items.findIndex(x => x.id === id);
-    if (idx > -1) items.splice(idx, 1);
-  }
-  
-  return { title, count, name, items, increment, remove };
-}).mount('#app');
-</script>
-```
-
----
-
-## Reactivity Deep Dive
-
-### ref(value)
-Creates reactive reference. **In v0.4.1, automatically wraps objects with reactive().**
-
 ```javascript
-const count = ref(0);
-count.value++; // Access with .value in JavaScript
+import { onHook } from './zog.js';
 
-const user = ref({ name: 'John' }); // Object is automatically reactive
-user.value.name = 'Jane'; // Nested properties trigger updates
+onHook('beforeCompile', (el, scope, cs) => {});
+onHook('afterCompile', (el, scope, cs) => {});
+onHook('onError', (err, type, context) => {});
 ```
-
-**In templates:** refs are auto-unwrapped
-```html
-{{ count }}        <!-- ✅ NOT count.value -->
-{{ user.name }}    <!-- ✅ Nested access works -->
-```
-
-### reactive(object)
-Deep reactive proxy for objects and arrays.
-
-```javascript
-const state = reactive({
-  user: { name: 'Alice', age: 25 },
-  todos: ['Buy milk']
-});
-
-state.user.age = 26;        // Reactive
-state.todos.push('Walk dog'); // Reactive
-```
-
-**Array methods:** All mutators and iterators are tracked:
-- Mutators: `push`, `pop`, `shift`, `unshift`, `splice`, `sort`, `reverse`, `fill`, `copyWithin`
-- Iterators: `map`, `filter`, `find`, `findIndex`, `findLast`, `findLastIndex`, `includes`, `indexOf`, `lastIndexOf`, `some`, `every`, `forEach`, `reduce`, `values`, `entries`, `keys`
-
-### computed(getter)
-Lazy cached computed value.
-
-```javascript
-const firstName = ref('John');
-const lastName = ref('Doe');
-const fullName = computed(() => `${firstName.value} ${lastName.value}`);
-
-console.log(fullName.value); // Computed once
-console.log(fullName.value); // Cached
-firstName.value = 'Jane';
-console.log(fullName.value); // Re-computed
-```
-
-### watchEffect(fn, opts?)
-Reactive effect with automatic dependency tracking.
-
-```javascript
-const count = ref(0);
-
-const stop = watchEffect(() => {
-  console.log('Count:', count.value); // Tracks count
-});
-
-count.value++; // Triggers effect
-
-stop(); // Stop watching
-```
-
-**Options:**
-- `scheduler(run)` - Custom scheduler function
 
 ---
 
 ## Template Syntax
 
 ### Interpolation
-Text interpolation with `{{ expression }}`:
-
 ```html
-<p>Hello {{ name }}!</p>
-<p>Total: {{ price * quantity }}</p>
-<p>{{ user.isAdmin ? 'Admin' : 'User' }}</p>
+{{ count }}                    <!-- auto-unwraps refs -->
+{{ user.name }}                <!-- reactive object access -->
+{{ price * qty }}              <!-- expressions -->
+{{ active ? 'Yes' : 'No' }}    <!-- ternary -->
 ```
-
-**Rules:**
-- Expressions are evaluated as JavaScript
-- Refs are auto-unwrapped
-- Has access to entire scope
 
 ### Directives
 
 #### z-if / z-else-if / z-else
-Conditional rendering:
-
 ```html
-<div z-if="score >= 90">A grade</div>
-<div z-else-if="score >= 80">B grade</div>
-<div z-else>Keep studying</div>
+<div z-if="score >= 90">A</div>
+<div z-else-if="score >= 80">B</div>
+<div z-else>C</div>
 ```
 
-**Behavior:**
-- Only active branch exists in DOM
-- Branches are compiled when activated
-- Supports chaining
-
 #### z-for
-List rendering with keyed diffing:
-
 ```html
-<!-- Simple -->
+<!-- Basic -->
 <li z-for="item in items">{{ item }}</li>
 
 <!-- With index -->
-<li z-for="(item, index) in items">
-  {{ index + 1 }}. {{ item }}
-</li>
+<li z-for="(item, index) in items">{{ index }}: {{ item.name }}</li>
 
 <!-- With key (recommended) -->
-<li z-for="item in items" :key="item.id">
-  {{ item.name }}
-</li>
+<li z-for="item in items" :key="item.id">{{ item.name }}</li>
 ```
 
-**Syntax options:**
-- `item in array`
-- `item of array`
-- `(item, index) in array`
-- `(item, index) of array`
+**z-for behavior:**
+- `item` is reactive object (direct access) or ref-wrapped primitive
+- `index` is plain number, updates when array changes
+- Both auto-unwrap in templates (no .value needed)
+- Always use `:key` with unique ID for performance
 
-**CRITICAL z-for behavior:**
-- Both `item` and `index` are wrapped in `ref()` internally
-- Both are **auto-unwrapped in templates**
-- Both are **auto-unwrapped in inline event handlers** (v0.4.1)
-
-#### z-text / z-html / z-show
-
+#### z-model (two-way binding)
 ```html
-<p z-text="message"></p>           <!-- Safe textContent -->
-<div z-html="htmlContent"></div>   <!-- innerHTML (trusted only!) -->
-<div z-show="isVisible">...</div>  <!-- Toggle display -->
-```
-
-#### z-model
-Two-way data binding:
-
-```html
-<!-- Text input -->
-<input z-model="username" />
-
-<!-- Textarea -->
+<input z-model="name" />
 <textarea z-model="bio"></textarea>
-
-<!-- Checkbox -->
 <input type="checkbox" z-model="agreed" />
-
-<!-- Radio -->
 <input type="radio" z-model="color" value="red" />
-<input type="radio" z-model="color" value="blue" />
-
-<!-- Select -->
 <select z-model="country">
   <option value="us">USA</option>
-  <option value="uk">UK</option>
 </select>
 ```
 
-#### Event Handling
-Attach event listeners with `@event` or `z-on:event`:
-
+#### z-show / z-text / z-html
 ```html
-<!-- Method handler (recommended) -->
-<button @click="handleClick">Click</button>
-
-<!-- Inline expression -->
-<button @click="count++">Increment</button>
-
-<!-- Multiple events -->
-<input @input="handleInput" @blur="handleBlur" />
+<div z-show="isVisible">Toggle display</div>
+<p z-text="message"></p>
+<div z-html="htmlContent"></div>  <!-- XSS risk! -->
 ```
 
-**CRITICAL: Event handler ref unwrapping (v0.4.1)**
-
-In inline event expressions, **all refs from scope are auto-unwrapped**:
-
-```javascript
-// Given scope:
-const count = ref(0);
-const user = ref({ name: 'John', age: 25 });
-
-// In template:
-@click="count++"              // ✅ Works! count is unwrapped
-@click="user.age = 30"        // ✅ Works! user is unwrapped
-@click="console.log(count)"   // ✅ Logs the number, not ref object
-```
-
-**How it works (code from v0.4.1):**
-```javascript
-// Line 412-417
-const keys = Object.keys(scope);
-const args = keys.map(k => {
-    const v = scope[k];
-    return v && v._isRef ? v.value : v; // Unwraps refs!
-});
-Function(...keys, 'e', `"use strict";${value}`)(...args, e);
-```
-
-**This means:**
-- ✅ `@click="count++"` works (count is unwrapped)
-- ✅ `@click="user.name = 'Jane'"` works (user is unwrapped)
-- ⚠️ But still prefer method handlers for clarity
-
-#### Attribute Binding
-Dynamic attributes with `:attr` or `z-attr`:
-
+#### Attribute Binding (:attr)
 ```html
-<!-- Simple binding -->
-<img :src="imageUrl" :alt="imageAlt" />
-
-<!-- Boolean attributes -->
-<button :disabled="isDisabled">Submit</button>
-
-<!-- Class binding -->
-<div :class="{ active: isActive, error: hasError }">Content</div>
-<div :class="dynamicClassName">Content</div>
-
-<!-- Style binding -->
-<div :style="{ color: textColor, fontSize: size + 'px' }">Text</div>
-
-<!-- Any attribute -->
-<a :href="link" :target="target">Link</a>
+<img :src="imageUrl" />
+<button :disabled="isLoading">Submit</button>
+<div :class="{ active: isActive, error: hasError }">...</div>
+<div :class="'btn ' + type">...</div>
+<div :style="{ color: textColor, fontSize: size + 'px' }">...</div>
 ```
 
-**Boolean attribute rules:**
-- `true` → attribute is set
-- `false` → attribute is removed
-- Other values → converted to string
+#### Event Handling (@event)
+```html
+<button @click="handleClick">Method</button>
+<button @click="count.value++">Inline (need .value)</button>
+<button @click="items.push('new')">Array method</button>
+<input @input="onInput" @blur="onBlur" />
+```
+
+**Event handler rules:**
+- Method name: `@click="methodName"` — called with event
+- Inline expression: `@click="count.value++"` — refs need `.value`
+- Event object available as `e`: `@click="handle(e)"`
 
 ---
 
-## z-for: Complete Reference
-
-### Basic Behavior
-
-```javascript
-// Given:
-const items = reactive([
-  { id: 1, name: 'Alice', age: 25 },
-  { id: 2, name: 'Bob', age: 30 }
-]);
-```
+## Complete Example
 
 ```html
-<div z-for="(user, index) in items" :key="user.id">
-  <!-- In templates: auto-unwrapped -->
-  {{ index + 1 }}. {{ user.name }} ({{ user.age }} years old)
+<div id="app">
+  <h1>{{ title }}</h1>
   
-  <!-- In event handlers: auto-unwrapped (v0.4.1) -->
-  <button @click="user.age++">Birthday</button>
-  <button @click="remove(user.id)">Delete</button>
-  <button @click="console.log(index)">Log Index</button>
+  <input z-model="newTodo" @keyup.enter="addTodo" />
+  <button @click="addTodo">Add</button>
+  
+  <ul>
+    <li z-for="(todo, index) in todos" :key="todo.id">
+      <input type="checkbox" 
+             :checked="todo.done" 
+             @change="toggleTodo(todo.id)" />
+      <span :class="{ done: todo.done }">
+        {{ index + 1 }}. {{ todo.text }}
+      </span>
+      <button @click="removeTodo(todo.id)">×</button>
+    </li>
+  </ul>
+  
+  <p z-show="todos.length === 0">No todos yet!</p>
+  <p>Total: {{ todos.length }} | Done: {{ doneCount }}</p>
 </div>
-```
 
-### Internal Implementation
+<script type="module">
+import { createApp, ref, reactive, computed } from './zog.js';
 
-From zog.js v0.4.1 (lines 379-380):
-```javascript
-const itemRef = ref(val);      // Item is wrapped in ref
-const indexRef = ref(i);       // Index is wrapped in ref
-const s = new Scope({ ...scope, [itemName]: itemRef, [indexName]: indexRef });
-```
-
-**Key points:**
-1. Both item and index are refs internally
-2. Template expressions auto-unwrap them (line 238)
-3. Event handlers auto-unwrap them (lines 413-416)
-4. Updates work correctly: `existing.indexRef.value = i` (line 376)
-
-### Template Expression Unwrapping
-
-```html
-<div z-for="(user, idx) in users">
-  <!-- All these work - auto-unwrapped: -->
-  {{ user.name }}
-  {{ idx + 1 }}
-  {{ user.age > 18 ? 'Adult' : 'Minor' }}
-  :class="{ active: user.isActive }"
-  :key="user.id"
-  z-if="user.role === 'admin'"
-</div>
-```
-
-### Event Handler Unwrapping (v0.4.1)
-
-```html
-<div z-for="(user, idx) in users">
-  <!-- All these work - auto-unwrapped in v0.4.1: -->
-  @click="user.age++"
-  @click="user.name = 'New Name'"
-  @click="updateUser(user.id, user.name)"
-  @click="console.log(idx, user)"
-  @click="remove(user.id)"
-</div>
-```
-
-**NO .value needed!** This is a major improvement in v0.4.1.
-
-### Using :key (Recommended)
-
-Always use unique keys for efficient DOM reuse:
-
-```html
-<!-- ✅ CORRECT - Unique ID -->
-<div z-for="item in items" :key="item.id">
-
-<!-- ❌ WRONG - Index as key -->
-<div z-for="(item, index) in items" :key="index">
-
-<!-- ❌ WRONG - No key -->
-<div z-for="item in items">
-```
-
-**Key evaluation context:**
-Keys are evaluated with `item` and `index` in scope (line 369):
-```javascript
-const key = '_' + (keyAttr ? evalExp(keyAttr, { 
-  ...scope, 
-  [itemName]: { _isRef: true, value: v }, 
-  [indexName]: i 
-}) : i);
-```
-
-Note: In key expressions, item is passed as a ref wrapper for evaluation.
-
----
-
-## Best Practices
-
-### ✅ DO: Use ID-based operations
-
-```javascript
-const todos = reactive([
-  { id: 1, text: 'Task 1' },
-  { id: 2, text: 'Task 2' }
-]);
-
-function removeTodo(id) {
-  const idx = todos.findIndex(t => t.id === id);
-  if (idx > -1) todos.splice(idx, 1);
-}
-
-function toggleTodo(id) {
-  const todo = todos.find(t => t.id === id);
-  if (todo) todo.done = !todo.done;
-}
-```
-
-```html
-<li z-for="todo in todos" :key="todo.id">
-  <button @click="removeTodo(todo.id)">Delete</button>
-  <button @click="toggleTodo(todo.id)">Toggle</button>
-</li>
-```
-
-### ❌ DON'T: Use index for mutations
-
-```javascript
-// ❌ WRONG - index changes when items are removed
-function removeTodo(index) {
-  todos.splice(index, 1); // BUG: wrong item after deletions
-}
-```
-
-```html
-<!-- ❌ WRONG -->
-<li z-for="(todo, idx) in todos">
-  <button @click="removeTodo(idx)">Delete</button>
-</li>
-```
-
-**Why?** When you remove item at index 1, item at index 2 becomes index 1. Next operation on "index 1" affects the wrong item!
-
-### ✅ DO: Use method handlers
-
-```javascript
-// Recommended
-@click="increment"
-
-function increment() {
-  count.value++;
-}
-```
-
-### ⚠️ OK: Inline expressions (but be careful)
-
-```javascript
-// Works in v0.4.1 (refs auto-unwrapped)
-@click="count++"
-@click="user.age = 30"
-
-// But method handlers are clearer
-```
-
-### ✅ DO: Generate unique IDs
-
-```javascript
-let nextId = 1;
-
-function addTodo(text) {
-  todos.push({
-    id: nextId++,
-    text: text,
-    done: false
-  });
-}
-
-// Or use timestamp + random
-function generateId() {
-  return Date.now() + '-' + Math.random().toString(36).substr(2, 9);
-}
+createApp(() => {
+  const title = ref('My Todos');
+  const newTodo = ref('');
+  const todos = reactive([]);
+  let nextId = 1;
+  
+  const doneCount = computed(() => 
+    todos.filter(t => t.done).length
+  );
+  
+  function addTodo() {
+    if (!newTodo.value.trim()) return;
+    todos.push({ id: nextId++, text: newTodo.value, done: false });
+    newTodo.value = '';
+  }
+  
+  function removeTodo(id) {
+    const idx = todos.findIndex(t => t.id === id);
+    if (idx > -1) todos.splice(idx, 1);
+  }
+  
+  function toggleTodo(id) {
+    const todo = todos.find(t => t.id === id);
+    if (todo) todo.done = !todo.done;
+  }
+  
+  return { title, newTodo, todos, doneCount, addTodo, removeTodo, toggleTodo };
+}).mount('#app');
+</script>
 ```
 
 ---
 
-## Expression Evaluation Rules
-
-### Template Expressions (Auto-unwrap)
-
-All template expressions auto-unwrap refs (line 238):
-```javascript
-return cached(...keys.map(k => { 
-  const v = scope[k]; 
-  return v?._isRef ? v.value : v; 
-}));
-```
-
-**Examples:**
-```html
-{{ count }}              <!-- ✅ Unwrapped -->
-{{ user.name }}          <!-- ✅ Unwrapped -->
-:disabled="isLoading"    <!-- ✅ Unwrapped -->
-z-if="hasPermission"     <!-- ✅ Unwrapped -->
-z-text="message"         <!-- ✅ Unwrapped -->
-```
-
-### Event Handler Expressions (Auto-unwrap in v0.4.1)
-
-Event handlers also auto-unwrap refs (lines 413-416):
-```javascript
-const args = keys.map(k => {
-  const v = scope[k];
-  return v && v._isRef ? v.value : v;
-});
-```
-
-**Examples:**
-```html
-@click="count++"                  <!-- ✅ Works -->
-@click="user.age = 30"            <!-- ✅ Works -->
-@click="items.push(newItem)"      <!-- ✅ Works -->
-@click="console.log(count, user)" <!-- ✅ Unwrapped values -->
-```
-
-### z-for Special Case
-
-In z-for loops, items and indices are refs but auto-unwrapped:
-
-```html
-<div z-for="(item, idx) in list">
-  {{ item.name }}           <!-- ✅ Auto-unwrapped -->
-  {{ idx + 1 }}             <!-- ✅ Auto-unwrapped -->
-  @click="item.age++"       <!-- ✅ Auto-unwrapped -->
-  @click="remove(item.id)"  <!-- ✅ Auto-unwrapped -->
-</div>
-```
-
-**No .value needed anywhere!**
-
----
-
-## Common Patterns
-
-### Todo List
+## Plugin System
 
 ```javascript
-const todos = reactive([]);
-let nextId = 1;
-
-function addTodo(text) {
-  todos.push({ id: nextId++, text, done: false });
-}
-
-function removeTodo(id) {
-  const idx = todos.findIndex(t => t.id === id);
-  if (idx > -1) todos.splice(idx, 1);
-}
-
-function toggleTodo(id) {
-  const todo = todos.find(t => t.id === id);
-  if (todo) todo.done = !todo.done;
-}
-```
-
-```html
-<input z-model="newTodo" @keyup.enter="addTodo(newTodo)" />
-<ul>
-  <li z-for="todo in todos" :key="todo.id">
-    <input type="checkbox" :checked="todo.done" @change="toggleTodo(todo.id)" />
-    <span :class="{ done: todo.done }">{{ todo.text }}</span>
-    <button @click="removeTodo(todo.id)">×</button>
-  </li>
-</ul>
-```
-
-### Form Handling
-
-```javascript
-const form = reactive({
-  email: '',
-  password: '',
-  agreed: false
-});
-
-const errors = reactive({
-  email: '',
-  password: ''
-});
-
-function validate() {
-  errors.email = form.email.includes('@') ? '' : 'Invalid email';
-  errors.password = form.password.length >= 6 ? '' : 'Min 6 chars';
-  return !errors.email && !errors.password;
-}
-
-async function submit(e) {
-  e.preventDefault();
-  if (!validate()) return;
-  
-  // Submit form
-  await api.post('/register', form);
-}
-```
-
-```html
-<form @submit="submit">
-  <input z-model="form.email" type="email" />
-  <span z-show="errors.email">{{ errors.email }}</span>
-  
-  <input z-model="form.password" type="password" />
-  <span z-show="errors.password">{{ errors.password }}</span>
-  
-  <input type="checkbox" z-model="form.agreed" />
-  
-  <button :disabled="!form.agreed">Submit</button>
-</form>
-```
-
-### Computed Values
-
-```javascript
-const items = reactive([
-  { name: 'Apple', price: 1.5, qty: 2 },
-  { name: 'Banana', price: 0.8, qty: 5 }
-]);
-
-const total = computed(() => 
-  items.reduce((sum, item) => sum + item.price * item.qty, 0)
-);
-
-const itemCount = computed(() => 
-  items.reduce((sum, item) => sum + item.qty, 0)
-);
-```
-
-```html
-<p>Total items: {{ itemCount }}</p>
-<p>Total price: ${{ total.toFixed(2) }}</p>
-```
-
----
-
-## Plugin Development
-
-### Plugin Structure (v0.4.1)
-
-```javascript
+// my-plugin.js
 export const MyPlugin = {
-  install(app, options) {
-    // Import Zog APIs
-    import { addHook, reactive, ref } from './zog.js';
+  install(api, options) {
+    // api contains: app, reactive, ref, computed, watchEffect, 
+    //               onHook, compile, Scope, evalExp
     
-    console.log('Installing plugin with options:', options);
-    
-    // Add hooks
-    addHook('beforeCompile', (el, scope, cs) => {
-      // Custom compilation logic
-    });
-    
-    // Add methods to app (optional)
-    app.customMethod = () => {
-      console.log('Custom method');
-    };
-  }
-};
-```
-
-### Using Plugins
-
-```javascript
-import { createApp } from './zog.js';
-import { MyPlugin } from './my-plugin.js';
-
-const app = createApp(() => ({ /* ... */ }));
-app.use(MyPlugin, { debug: true });
-app.mount('#app');
-```
-
-### Available Hooks
-
-#### beforeCompile(el, scope, cs)
-Called before compiling an element. Return `false` to prevent compilation.
-
-```javascript
-addHook('beforeCompile', (el, scope, cs) => {
-  if (el.hasAttribute('skip-compile')) {
-    return false; // Skip compilation
-  }
-});
-```
-
-#### afterCompile(el, scope, cs)
-Called after an element is compiled.
-
-```javascript
-addHook('afterCompile', (el, scope, cs) => {
-  console.log('Compiled:', el.tagName);
-});
-```
-
-#### beforeEffect(effect)
-Called before a reactive effect runs.
-
-```javascript
-addHook('beforeEffect', (effect) => {
-  console.log('Effect ID:', effect.id);
-});
-```
-
-#### onError(error, context, details)
-Called when an error occurs.
-
-```javascript
-addHook('onError', (error, context, details) => {
-  console.error(`Error in ${context}:`, error);
-  
-  if (context === 'compile') {
-    console.log('Element:', details.el);
-  } else if (context === 'effect') {
-    console.log('Effect:', details);
-  } else if (context === 'event') {
-    console.log('Event:', details.name, details.value);
-  }
-  
-  // Send to error tracking service
-  trackError(error, context, details);
-});
-```
-
-### Scope Management
-
-```javascript
-addHook('beforeCompile', (el, scope, cs) => {
-  if (el.hasAttribute('my-directive')) {
-    el.removeAttribute('my-directive');
-    
-    // Add effect with cleanup
-    cs.addEffect(watchEffect(() => {
-      // Reactive logic
-    }));
-    
-    // Add event listener with cleanup
-    const handler = () => { /* ... */ };
-    el.addEventListener('click', handler);
-    cs.addListener(el, 'click', handler);
-  }
-});
-```
-
----
-
-## Advanced Topics
-
-### Custom Directives via Plugins
-
-```javascript
-export const DirectivePlugin = {
-  install(app) {
-    import { addHook, watchEffect } from './zog.js';
-    
-    addHook('beforeCompile', (el, scope, cs) => {
+    api.onHook('beforeCompile', (el, scope, cs) => {
       if (el.hasAttribute('z-focus')) {
         el.removeAttribute('z-focus');
-        
-        cs.addEffect(watchEffect(() => {
-          if (document.body.contains(el)) {
-            el.focus();
-          }
-        }));
+        setTimeout(() => el.focus(), 0);
       }
     });
   }
 };
-```
 
-### Working with z-if Elements
+// Usage
+import { createApp } from './zog.js';
+import { MyPlugin } from './my-plugin.js';
 
-Elements inside z-if may not be in DOM when hooks run:
-
-```javascript
-addHook('beforeCompile', (el, scope, cs) => {
-  let cleanup = null;
-  
-  cs.addEffect(watchEffect(() => {
-    const inDOM = document.body.contains(el);
-    
-    if (inDOM && !cleanup) {
-      // Setup when element enters DOM
-      cleanup = setupFeature(el);
-    } else if (!inDOM && cleanup) {
-      // Cleanup when element leaves DOM
-      cleanup();
-      cleanup = null;
-    }
-  }));
-  
-  cs.addEffect(() => cleanup?.());
-});
-```
-
-### Effect Scheduling
-
-```javascript
-const count = ref(0);
-
-watchEffect(() => {
-  console.log('Count:', count.value);
-}, {
-  scheduler: (run) => {
-    // Run on next animation frame
-    requestAnimationFrame(run);
-  }
-});
+createApp(() => ({ /* ... */ }))
+  .use(MyPlugin, { debug: true })
+  .mount('#app');
 ```
 
 ---
 
 ## Common Mistakes
 
-### ❌ Using index for mutations
-
+### ❌ Using ref for objects
 ```javascript
-// WRONG
-@click="removeItem(index)"
-
-// CORRECT
-@click="removeItem(item.id)"
+const user = ref({ name: 'John' });  // ERROR! throws
+const user = reactive({ name: 'John' });  // ✅ correct
 ```
 
-### ❌ Forgetting unique keys
-
+### ❌ Using index for mutations
 ```html
-<!-- WRONG -->
-<div z-for="item in items">
+<!-- WRONG: index changes after removal -->
+<button @click="remove(index)">Delete</button>
+
+<!-- CORRECT: use unique ID -->
+<button @click="remove(item.id)">Delete</button>
+```
+
+### ❌ Missing .value in event handlers
+```html
+<!-- WRONG: refs not auto-unwrapped in events -->
+@click="count++"
 
 <!-- CORRECT -->
-<div z-for="item in items" :key="item.id">
+@click="count.value++"
+@click="increment"  <!-- or use method -->
 ```
 
 ### ❌ Using index as key
-
 ```html
-<!-- WRONG - defeats key purpose -->
-<div z-for="(item, idx) in items" :key="idx">
+<!-- WRONG -->
+<div z-for="(item, i) in items" :key="i">
 
 <!-- CORRECT -->
 <div z-for="item in items" :key="item.id">
 ```
 
-### ❌ Not handling z-if in plugins
-
+### ❌ Forgetting .value in JS
 ```javascript
-// WRONG - assumes element is in DOM
-addHook('afterCompile', (el) => {
-  el.getBoundingClientRect(); // May fail if inside z-if
-});
+// WRONG
+console.log(count);  // logs ref object
 
-// CORRECT - check DOM presence
-addHook('afterCompile', (el) => {
-  if (document.body.contains(el)) {
-    el.getBoundingClientRect();
-  }
-});
+// CORRECT
+console.log(count.value);  // logs number
 ```
 
 ---
 
-## Performance Tips
+## Quick Reference
 
-1. **Use :key with unique IDs** - Enables efficient DOM reuse
-2. **Computed values are cached** - Use for expensive calculations
-3. **Effects are batched** - Multiple updates = single re-render
-4. **Avoid large inline expressions** - Extract to methods
+| Context | ref access | reactive access |
+|---------|-----------|-----------------|
+| JavaScript | `count.value` | `state.name` |
+| Template {{ }} | `count` (auto) | `state.name` |
+| :attr binding | `count` (auto) | `state.name` |
+| @event inline | `count.value` | `state.name` |
+| @event method | `count.value` | `state.name` |
 
----
+### When to use what
+- **Primitive (string/number/boolean)** → `ref()`
+- **Object or Array** → `reactive()`
+- **Derived value** → `computed()`
 
-## Summary for LLMs
-
-### Key Takeaways
-
-1. **Refs are auto-unwrapped everywhere** (templates AND events in v0.4.1)
-2. **z-for: Both item and index are refs, but auto-unwrapped**
-3. **Always use IDs for operations, never index**
-4. **Always use :key with unique IDs**
-5. **Method handlers are clearer than inline expressions**
-6. **Plugin API: `install(app, options)` not `install(api, options)`**
-
-### Correct Patterns
-
-```javascript
-// ✅ Good patterns
-@click="increment"
-@click="remove(item.id)"
-@click="user.age++"              // Works in v0.4.1
-:key="item.id"
-{{ count }}
-{{ user.name }}
-
-// ❌ Bad patterns
-@click="remove(index)"           // BUG
-:key="index"                     // Defeats purpose
-{{ count.value }}                // Unnecessary
-```
-
-### When to use .value
-
-- ✅ In JavaScript code: `count.value++`
-- ❌ In templates: `{{ count }}` not `{{ count.value }}`
-- ❌ In events: `@click="count++"` (auto-unwrapped in v0.4.1)
+### z-for item types
+- **Object in array** → item is reactive, access `item.prop` directly
+- **Primitive in array** → item is ref-wrapped, but auto-unwrapped in template
 
 ---
 
-**End of Zog.js v0.4.1 Reference**
+## Supported Array Methods
+
+All these trigger reactivity:
+
+**Mutators:** push, pop, shift, unshift, splice, sort, reverse, fill, copyWithin
+
+**Iterators:** map, filter, find, findIndex, findLast, findLastIndex, includes, indexOf, lastIndexOf, some, every, forEach, reduce, reduceRight, flat, flatMap, values, entries, keys
+
+---
+
+**End of Zog.js v0.4.7 Reference**
