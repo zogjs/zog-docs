@@ -1,4 +1,4 @@
-# Zog.js v0.4.7 — Minimal Reactive UI Library
+# Zog.js v0.4.8 — Minimal Reactive UI Library
 
 Zog.js is a lightweight (~5KB) Vue-inspired reactive framework for small/medium projects.
 No build step required. Just include and use.
@@ -208,16 +208,142 @@ createApp(() => {
 
 ---
 
-## Plugin System
+## Plugin System (v0.4.8)
+
+### Overview
+
+Zog.js provides a powerful hook-based plugin system that allows extending the framework's behavior without modifying the core. Plugins can intercept compilation, handle errors, and even prevent element rendering.
+
+### Available Hooks
+
+1. **`beforeCompile(el, scope, cs)`** - Called before an element is compiled
+2. **`afterCompile(el, scope, cs)`** - Called after an element is compiled
+3. **`onError(err, type, context)`** - Called when an error occurs
+
+### Hook Return Values (v0.4.8 NEW!)
+
+**Return `false`** - Stop compilation (beforeCompile only):
+```javascript
+onHook('beforeCompile', (el, scope, cs) => {
+  if (el.hasAttribute('z-pre')) {
+    el.removeAttribute('z-pre');
+    return false; // ✅ Element will NOT be compiled
+  }
+});
+```
+
+**Return `undefined` or no return** - Continue normally (default behavior)
+
+### Hook Parameters
 
 ```javascript
-// my-plugin.js
+onHook('beforeCompile', (el, scope, cs) => {
+  // el: DOM Node (nodeType 1=Element, 3=Text)
+  // scope: Object - Reactive data for this scope
+  // cs: Scope instance - Current compilation scope
+});
+```
+
+#### `el` - DOM Node
+```javascript
+if (el.nodeType === 1) {
+  // Element: <div>, <button>, etc.
+  console.log('Tag:', el.tagName);
+  console.log('Attrs:', [...el.attributes]);
+}
+
+if (el.nodeType === 3) {
+  // Text node with possible {{ }} interpolation
+  console.log('Text:', el.nodeValue);
+}
+```
+
+#### `scope` - Reactive Data Object
+```javascript
+// Access reactive data
+scope.counter?.value  // ref needs .value
+scope.user?.name      // reactive direct access
+
+// Call methods
+if (typeof scope.methodName === 'function') {
+  scope.methodName();
+}
+```
+
+#### `cs` - Scope Instance
+```javascript
+cs.addEffect(stop);           // Register effect for cleanup
+cs.addListener(el, ev, fn);   // Register event listener
+cs.addChild(childScope);      // Register child scope
+cs.cleanup();                 // Clean up everything
+```
+
+### Error Handling (v0.4.8 NEW!)
+
+Hooks have automatic error handling:
+- ✅ Error is logged to console
+- ✅ `onError` hooks are triggered
+- ✅ Other hooks continue to execute
+- ✅ App doesn't crash
+
+```javascript
+api.onHook('onError', (err, type, context) => {
+  console.error(`[${type}] Error:`, err.message);
+  // Send to analytics, etc.
+});
+```
+
+### Plugin API
+
+```javascript
 export const MyPlugin = {
   install(api, options) {
-    // api contains: app, reactive, ref, computed, watchEffect, 
-    //               onHook, compile, Scope, evalExp
+    // api contains:
+    // - app, reactive, ref, computed, watchEffect
+    // - onHook, compile, Scope, evalExp
     
     api.onHook('beforeCompile', (el, scope, cs) => {
+      // Plugin logic here
+    });
+  }
+};
+```
+
+### Complete Plugin Examples
+
+#### Example 1: z-pre Plugin (Skip Compilation)
+
+```javascript
+/**
+ * Prevents compilation of elements with z-pre attribute
+ * Usage: <div z-pre>{{ not compiled }}</div>
+ */
+export const ZPrePlugin = {
+  install(api) {
+    api.onHook('beforeCompile', (el, scope, cs) => {
+      if (el.nodeType !== 1) return;
+      
+      if (el.hasAttribute('z-pre')) {
+        el.removeAttribute('z-pre');
+        return false; // Stop compilation
+      }
+    });
+  }
+};
+```
+
+#### Example 2: Auto-focus Plugin
+
+```javascript
+/**
+ * Auto-focuses elements with z-focus attribute
+ * Usage: <input z-focus />
+ */
+export const FocusPlugin = {
+  install(api) {
+    api.onHook('afterCompile', (el, scope, cs) => {
+      if (el.nodeType !== 1) return;
+      
       if (el.hasAttribute('z-focus')) {
         el.removeAttribute('z-focus');
         setTimeout(() => el.focus(), 0);
@@ -225,15 +351,168 @@ export const MyPlugin = {
     });
   }
 };
+```
+
+#### Example 3: Permission-based Rendering
+
+```javascript
+/**
+ * Removes elements requiring permissions user doesn't have
+ * Usage: <button z-permission="admin">Delete</button>
+ */
+export const PermissionPlugin = {
+  install(api, options) {
+    const { userPermissions = [] } = options;
+    
+    api.onHook('beforeCompile', (el, scope, cs) => {
+      if (el.nodeType !== 1) return;
+      
+      const required = el.getAttribute('z-permission');
+      if (!required) return;
+      
+      if (!userPermissions.includes(required)) {
+        el.remove();
+        return false; // Don't compile
+      }
+      
+      el.removeAttribute('z-permission');
+    });
+  }
+};
 
 // Usage
-import { createApp } from './zog.js';
-import { MyPlugin } from './my-plugin.js';
-
-createApp(() => ({ /* ... */ }))
-  .use(MyPlugin, { debug: true })
+createApp(() => ({}))
+  .use(PermissionPlugin, { userPermissions: ['user', 'editor'] })
   .mount('#app');
 ```
+
+#### Example 4: Responsive Rendering
+
+```javascript
+/**
+ * Skip elements based on device type
+ * Usage: <div z-mobile>Mobile only</div>
+ */
+export const ResponsivePlugin = {
+  install(api) {
+    const isMobile = /Android|iPhone/i.test(navigator.userAgent);
+    
+    api.onHook('beforeCompile', (el, scope, cs) => {
+      if (el.nodeType !== 1) return;
+      
+      const mobileOnly = el.hasAttribute('z-mobile');
+      const desktopOnly = el.hasAttribute('z-desktop');
+      
+      if ((mobileOnly && !isMobile) || (desktopOnly && isMobile)) {
+        el.remove();
+        return false;
+      }
+      
+      el.removeAttribute('z-mobile');
+      el.removeAttribute('z-desktop');
+    });
+  }
+};
+```
+
+#### Example 5: Custom Directive (Tooltip)
+
+```javascript
+/**
+ * Adds tooltip directive
+ * Usage: <button z-tooltip="'Help text'">Hover</button>
+ */
+export const TooltipPlugin = {
+  install(api) {
+    const { watchEffect, evalExp } = api;
+    
+    api.onHook('beforeCompile', (el, scope, cs) => {
+      if (el.nodeType !== 1) return;
+      
+      const tooltipExp = el.getAttribute('z-tooltip');
+      if (!tooltipExp) return;
+      
+      el.removeAttribute('z-tooltip');
+      
+      // Create tooltip
+      const tooltip = document.createElement('div');
+      tooltip.className = 'tooltip';
+      tooltip.style.cssText = `
+        position: absolute;
+        background: #333;
+        color: white;
+        padding: 5px 10px;
+        border-radius: 4px;
+        font-size: 12px;
+        display: none;
+        z-index: 9999;
+      `;
+      document.body.appendChild(tooltip);
+      
+      // Reactive text
+      cs.addEffect(watchEffect(() => {
+        tooltip.textContent = evalExp(tooltipExp, scope) || '';
+      }));
+      
+      // Show/hide handlers
+      const show = (e) => {
+        tooltip.style.display = 'block';
+        tooltip.style.left = e.pageX + 10 + 'px';
+        tooltip.style.top = e.pageY + 10 + 'px';
+      };
+      const hide = () => tooltip.style.display = 'none';
+      
+      el.addEventListener('mouseenter', show);
+      el.addEventListener('mousemove', show);
+      el.addEventListener('mouseleave', hide);
+      
+      cs.addListener(el, 'mouseenter', show);
+      cs.addListener(el, 'mousemove', show);
+      cs.addListener(el, 'mouseleave', hide);
+      
+      // Cleanup
+      cs.addEffect(() => tooltip.remove());
+    });
+  }
+};
+```
+
+### Plugin Best Practices
+
+✅ **DO:**
+- Always check `el.nodeType` before processing
+- Remove custom attributes after processing
+- Register effects/listeners with `cs.addEffect()` / `cs.addListener()`
+- Return `false` to stop compilation when needed
+- Use options for configuration
+
+❌ **DON'T:**
+- Don't forget to remove attributes
+- Don't modify elements after returning false
+- Don't create memory leaks (use cs.addListener)
+- Don't throw uncaught errors
+
+### Plugin Installation
+
+```javascript
+import { createApp } from './zog.js';
+import { Plugin1, Plugin2 } from './plugins.js';
+
+createApp(() => ({ /* ... */ }))
+  .use(Plugin1)                    // No options
+  .use(Plugin2, { option: true })  // With options
+  .mount('#app');
+```
+
+Plugins execute in registration order. If Plugin1's `beforeCompile` returns `false`, Plugin2's won't run for that element.
+
+### Hook Capabilities Summary
+
+| Hook | Can Stop Compilation? | Error Isolated? | Use Case |
+|------|----------------------|-----------------|----------|
+| beforeCompile | ✅ Yes (return false) | ✅ Yes | Skip/modify elements |
+| afterCompile | ❌ No | ✅ Yes | Post-processing |
+| onError | ❌ No | ✅ Yes | Error logging |
 
 ---
 
@@ -315,4 +594,4 @@ All these trigger reactivity:
 
 ---
 
-**End of Zog.js v0.4.7 Reference**
+**End of Zog.js v0.4.8 Reference**
