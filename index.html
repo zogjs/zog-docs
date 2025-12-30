@@ -1154,7 +1154,7 @@ section {
                             <pre class="code-content"><code><span class="c-tag">&lt;div</span> <span class="c-attr">id</span>=<span class="c-str">"app"</span><span class="c-tag">&gt;</span>
   <span class="c-tag">&lt;p&gt;</span>Count: {{ count }}<span class="c-tag">&lt;/p&gt;</span>
 
-  <span class="c-tag">&lt;button</span> <span class="c-attr">@click</span>=<span class="c-str">"increment"</span><span class="c-tag">&gt;</span>
+  <span class="c-tag">&lt;button</span> <span class="c-attr">@click</span>=<span class="c-str">"count.value++"</span><span class="c-tag">&gt;</span>
     Increment
   <span class="c-tag">&lt;/button&gt;</span>
 <span class="c-tag">&lt;/div&gt;</span>
@@ -1163,13 +1163,9 @@ section {
 <span class="c-keyword">import</span> { createApp, ref } <span class="c-keyword">from</span> <span class="c-str">'zogjs'</span>;
 
 createApp(() <span class="c-keyword">=&gt;</span> {
-  <span class="c-keyword">const</span> count = ref(<span class="c-num">0</span>);
-  
-  <span class="c-keyword">const</span> increment = () <span class="c-keyword">=&gt;</span> {
-    count.value++;
-  };
+  <span class="c-keyword">const</span> count = ref(<span class="c-num">0</span>);  
 
-  <span class="c-keyword">return</span> { count, increment };
+  <span class="c-keyword">return</span> { count };
 }).mount(<span class="c-str">'#app'</span>);
 <span class="c-tag">&lt;/script&gt;</span></code></pre>
                         </div>
